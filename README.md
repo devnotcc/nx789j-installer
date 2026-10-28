@@ -9,17 +9,23 @@ keeps the phone's firmware and unlock untouched.
 
 ## What it installs
 
-- **Evolution X** (Android 16)
-- **LineageOS** — with or without Google apps *(built but not enabled yet)*
-- **Debian 13 + KDE Plasma** — a desktop Linux that runs on the phone's hardware
-- **TWRP** recovery — on its own, or alongside an OS install
+| Package | Status |
+|---|---|
+| **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | packaged, draft release |
+| **TWRP** recovery on its own | packaged, draft release |
+| **LineageOS** 23.2, with or without Google apps | being built; shown as "Coming soon" |
+| **Debian 13 + KDE Plasma** | not packaged yet |
+
+Draft releases are not visible to the app or the public until they're published.
 
 ## Toolbox
 
 - **Play Integrity** — check a keybox against Google's revocation list, install one (no reboot),
   and see the status of the modules on the phone. **The app never ships keyboxes; you provide your own.**
 - **Full backup** — read every partition over EDL to the PC, with checksums (read-only).
-- **Recovery** — fix an unbootable slot, reflash just the kernel, boot to TWRP.
+- **Recovery** — restart into recovery/EDL/bootloader; fix a phone that only starts into fastboot
+  (clears the bootloader's "unbootable" mark in both copies of the partition table); put the
+  kernel back (rewrites only boot + init_boot from an OS package, keeps data).
 - **Windows 11 VM** — set up the crosvm-based Windows guest on a Debian install.
 
 ## Safety
@@ -62,4 +68,17 @@ nxcli pif-swap <file>       check then install a keybox (no reboot)
 nxcli edl-info              EDL lock state + partition count (read-only)
 nxcli backup [dir]          full partition backup over EDL (read-only)
 nxcli install <id> [--dry-run] [--twrp] [--wipe] [--source dir]
+nxcli repair-slot [--dry-run]   clear the "unbootable" mark on the active slot (phone in EDL)
+nxcli kernel <id> [--dry-run]   rewrite only boot + init_boot from a package
+nxcli pack <spec.json> <dir>    build a package: zstd, split under 2 GiB, manifest.json
 ```
+
+## Building
+
+```
+dotnet test tests/NxInstaller.Core.Tests
+dotnet publish src/NxInstaller.App -c Release -r win-x64 -p:Platform=x64 -o artifacts/NxInstaller-win-x64
+```
+
+The release build is one trimmed, compressed exe (about 58 MB). Package specs for `nxcli pack`
+are in `packaging/`.
