@@ -54,7 +54,7 @@ public sealed class EdlBackup(EdlSession edl, Log log)
         string? slot = null;
         try { slot = Install.InstallPlanner.ActiveSlot(table); } catch (InvalidDataException) { }
         var manifest = new BackupManifest(DateTime.Now, slot, edl.Unlock?.Unlocked ?? false, parts, tables);
-        await File.WriteAllTextAsync(Path.Combine(destDir, "backup.json"), JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), ct);
+        await File.WriteAllTextAsync(Path.Combine(destDir, "backup.json"), JsonSerializer.Serialize(manifest, Packages.PackageManifest.Info<BackupManifest>()), ct);
         await File.WriteAllLinesAsync(Path.Combine(destDir, "SHA256SUMS"), parts.Concat(tables).Select(e => $"{e.Sha256}  {e.File}"), ct);
         Progress?.Invoke("done", 1);
         log.Info($"backup complete: {parts.Count} partitions in {destDir}");

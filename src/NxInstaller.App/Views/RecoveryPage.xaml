@@ -21,21 +21,37 @@
                        Style="{StaticResource CaptionTextBlockStyle}" Margin="0,0,0,28" />
 
             <TextBlock Text="Repair" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,10" />
-            <StackPanel Spacing="8">
-                <Border Style="{StaticResource Card}" Opacity="0.6">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="Fix a phone that only starts into fastboot" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <TextBlock TextWrapping="Wrap" Opacity="0.8" Text="Clears the bootloader's 'unbootable' mark on the active slot. Coming soon." />
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Fix a phone that only starts into fastboot" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85"
+                               Text="After several failed starts the bootloader marks the slot as unbootable and only fastboot comes up. This clears that mark in both copies of the partition table. Nothing else changes: your system and data stay." />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85"
+                               Text="Put the phone in EDL mode first: power it off, hold both volume buttons and plug in the cable." />
+                    <Button x:Name="RepairButton" Content="Repair the slot" Click="Repair_Click" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Put the kernel back" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85"
+                               Text="Rewrites only the boot and init_boot partitions with the ones from an OS package, for example after a custom kernel that doesn't start. Apps and data stay." />
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                        <ComboBox x:Name="KernelPackage" MinWidth="260" PlaceholderText="Pick the installed OS" />
+                        <Button x:Name="KernelButton" Content="Put the kernel back" Click="Kernel_Click" />
                     </StackPanel>
-                </Border>
-                <Border Style="{StaticResource Card}" Opacity="0.6">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="Put the kernel back" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <TextBlock TextWrapping="Wrap" Opacity="0.8" Text="Rewrites only the boot and init_boot partitions of the installed OS. Coming soon." />
-                    </StackPanel>
-                </Border>
+                </StackPanel>
+            </Border>
+
+            <CheckBox x:Name="Dry" Content="Test run: go through the steps but write nothing" Margin="0,0,0,12" />
+
+            <StackPanel x:Name="ProgressArea" Spacing="8" Visibility="Collapsed" Margin="0,0,0,12">
+                <TextBlock x:Name="StepText" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <ProgressBar x:Name="Bar" IsIndeterminate="True" Height="6" />
             </StackPanel>
-            <InfoBar x:Name="Message" IsClosable="True" Margin="0,16,0,0" />
+            <InfoBar x:Name="Message" IsClosable="True" />
         </local:PageStack>
     </ScrollViewer>
 </Page>

@@ -1,0 +1,29 @@
+{
+  "id": "evox",
+  "name": "Evolution X",
+  "version": "16.0-20261023",
+  "kind": "android",
+  "family": "evolutionx",
+  "description": "Evolution X 16 for the NX789J, with KernelSU-Next + SUSFS in the kernel. Full install: system, kernel, boot images and (optionally) TWRP.",
+  "compat": {
+    "models": ["NX789J"],
+    "basebands": ["SS.DE.7.0-02024.3-PAKALA_GEN_PACK-1.82720.133"]
+  },
+  "wipe": { "unlessFamily": ["evolutionx"] },
+  "notes": [
+    "super + vbmeta_system: EvoX build of 2026-10-23 (vbmeta_system matches the phone it was tested on).",
+    "boot = GKI 6.6.92 + KSU-Next 3.4.2 + SUSFS (boot_susfs6); init_boot = stock generic ramdisk.",
+    "vendor_boot, dtbo, vbmeta (flags 3): copied from the working test phone on 2026-10-28.",
+    "recovery: TWRP 2026-09-25, optional."
+  ],
+  "images": [
+    { "partition": "boot", "slot": "active", "source": "../images/boot_susfs6_ksu342dev_uapi5.img" },
+    { "partition": "init_boot", "slot": "active", "source": "../images/init_boot_clean.img" },
+    { "partition": "vendor_boot", "slot": "active", "source": "../images/vendor_boot.img" },
+    { "partition": "dtbo", "slot": "active", "source": "../images/dtbo.img" },
+    { "partition": "vbmeta", "slot": "active", "source": "../images/vbmeta.img" },
+    { "partition": "super", "slot": "none", "source": "../images/super_raw.img" },
+    { "partition": "vbmeta_system", "slot": "active", "source": "../images/vbmeta_system.img" },
+    { "partition": "recovery", "slot": "active", "source": "../images/recovery.img", "option": "twrp" }
+  ]
+}

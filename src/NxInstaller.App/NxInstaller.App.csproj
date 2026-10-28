@@ -19,6 +19,19 @@
     <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
 
+  <!-- Release download size: English resources only, framework libraries trimmed (partial mode
+       leaves our own assemblies alone, so reflection-based JSON on our types keeps working),
+       and one compressed exe. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />

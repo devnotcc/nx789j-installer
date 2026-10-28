@@ -8,3 +8,5 @@ artifacts/
 *.keybox
 keybox*.xml
 tests/**/data/keybox-*.xml
+# real partition tables from the test phone (device-specific GUIDs): local only
+tests/**/data/lun4-*.bin

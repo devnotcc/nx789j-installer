@@ -1,0 +1,12 @@
+{
+  "id": "twrp",
+  "name": "TWRP recovery",
+  "version": "2026-09-25",
+  "kind": "recovery",
+  "description": "TWRP for the NX789J. Replaces only the recovery partition of the active slot; the installed OS and data are untouched.",
+  "compat": { "models": ["NX789J"] },
+  "notes": ["Build of 2026-09-25 (v4); ADSP started for USB-C and battery."],
+  "images": [
+    { "partition": "recovery", "slot": "active", "source": "../images/recovery.img" }
+  ]
+}

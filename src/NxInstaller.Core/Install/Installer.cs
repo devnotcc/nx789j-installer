@@ -17,6 +17,8 @@ public sealed record InstallOptions
     /// <summary>Read every written partition back and compare checksums.</summary>
     public bool Verify { get; init; } = true;
     public bool DryRun { get; init; }
+    /// <summary>Write only these partitions of the package (e.g. boot + init_boot to put a kernel back). Null = all.</summary>
+    public IReadOnlySet<string>? OnlyPartitions { get; init; }
 }
 
 public sealed record InstallStep(string Title, double Progress);
@@ -46,7 +48,16 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
     }
 
     public static IEnumerable<PackageImage> Selected(PackageManifest m, InstallOptions o) =>
-        m.Images.Where(i => i.Option is null || o.Options.Contains(i.Option));
+        m.Images.Where(i => (i.Option is null || o.Options.Contains(i.Option))
+                            && (o.OnlyPartitions is null || o.OnlyPartitions.Contains(i.Partition)));
+
+    /// <summary>Options that rewrite only the kernel (boot + init_boot) of an installed package, keeping data.</summary>
+    public static InstallOptions KernelOnly(bool dryRun) => new()
+    {
+        OnlyPartitions = new HashSet<string> { "boot", "init_boot" },
+        Wipe = false,
+        DryRun = dryRun,
+    };
 
     /// <param name="serial">adb serial of the phone if it is booted, or null if it is already in EDL.</param>
     public async Task InstallAsync(PackageEntry entry, InstallOptions o, string? serial, CancellationToken ct)
@@ -57,6 +68,7 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
         Report("Preparing images", 0.0);
         var dir = await PrepareAsync(entry, o, ct, new Progress<double>(f => Step?.Invoke(new("Preparing images", f * 0.4))));
         var prepared = Selected(m, o).Select(i => new PreparedImage(i, Path.Combine(dir, i.File))).ToList();
+        if (prepared.Count == 0) throw new InvalidOperationException($"{m.Name} has nothing to write with these options");
 
         var edl = new EdlSession(tools, run, log, Path.Combine(AppPaths.Work, "edl")) { DryRun = o.DryRun };
         if (serial is not null)

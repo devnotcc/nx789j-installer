@@ -1,8 +1,7 @@
 using System.Globalization;
-using System.Management;
 using System.Security;
 using System.Text;
-using System.Text.RegularExpressions;
+using Microsoft.Win32;
 using NxInstaller.Core.Safety;
 
 namespace NxInstaller.Core.Edl;
@@ -21,7 +20,7 @@ public sealed record EdlRead(GptPartition Partition, string File, ulong Sectors,
 /// After <see cref="ConnectAsync"/>, reads are always allowed; writes go through
 /// <see cref="PartitionPolicy"/> and require <see cref="Unlock"/> to have been read as unlocked.
 /// </summary>
-public sealed partial class EdlSession(EdlTools tools, ProcessRunner run, Log log, string workDir)
+public sealed class EdlSession(EdlTools tools, ProcessRunner run, Log log, string workDir)
 {
     public const int Luns = 6;
     public string? Port { get; private set; }
@@ -31,15 +30,29 @@ public sealed partial class EdlSession(EdlTools tools, ProcessRunner run, Log lo
     /// <summary>When set, writes are logged and their XML kept, but nothing is sent to the phone.</summary>
     public bool DryRun { get; init; }
 
+    /// <summary>
+    /// The COM port number of a connected Qualcomm 9008 (EDL) device, or null. Windows keeps every
+    /// port a USB device ever had under its hardware ID, and lists only the ports present right now
+    /// in HARDWARE\DEVICEMAP\SERIALCOMM; a 9008 port is connected when it is in both. Plain registry
+    /// reads, no WMI, so it also works in the trimmed release build.
+    /// </summary>
     public static string? FindPort()
     {
-        using var s = new ManagementObjectSearcher("SELECT Name FROM Win32_PnPEntity WHERE Name LIKE '%(COM%'");
-        foreach (var o in s.Get())
+        using var active = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DEVICEMAP\SERIALCOMM");
+        if (active is null) return null;
+        var present = active.GetValueNames().Select(n => active.GetValue(n) as string).OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        using var usb = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB");
+        if (usb is null) return null;
+        foreach (var id in usb.GetSubKeyNames().Where(n => n.StartsWith("VID_05C6&PID_9008", StringComparison.OrdinalIgnoreCase)))
         {
-            var name = o["Name"] as string ?? "";
-            if (!name.Contains("QDLoader") && !name.Contains("9008")) continue;
-            var m = ComRx().Match(name);
-            if (m.Success) return m.Groups[1].Value;
+            using var dev = usb.OpenSubKey(id);
+            foreach (var inst in dev?.GetSubKeyNames() ?? [])
+            {
+                using var p = dev!.OpenSubKey(inst + @"\Device Parameters");
+                if (p?.GetValue("PortName") is string port && present.Contains(port) && port.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+                    return port[3..];
+            }
         }
         return null;
     }
@@ -146,6 +159,85 @@ public sealed partial class EdlSession(EdlTools tools, ProcessRunner run, Log lo
         await SendAsync(xml.ToString(), $"write {what}", ct, dirs[0], isFullXml: true, timeout: TimeSpan.FromHours(2));
     }
 
+    /// <summary>
+    /// Clears the "unbootable" mark on <paramref name="slot"/> ("_a"/"_b") in BOTH the primary and
+    /// the backup GPT of the LUN holding boot_x, then reads both back to check. Returns false when
+    /// the slot isn't marked (nothing written). See <see cref="GptRepair"/>.
+    /// </summary>
+    public async Task<bool> RepairSlotAsync(string slot, CancellationToken ct)
+    {
+        if (Table is null || Unlock is null) throw new InvalidOperationException("not connected");
+        if (!Unlock.Unlocked) throw new PolicyViolationException("The bootloader is locked; nothing was written.");
+        var label = "boot" + slot;
+        var lun = Table.Get(label).Lun;
+
+        // primary: MBR + header + entries; backup: entries + header at the end of the LUN
+        var pFile = await ReadRegionAsync(lun, 0, Gpt.HeadSectors, "gpt_primary.bin", ct);
+        var primary = await File.ReadAllBytesAsync(pFile, ct);
+        var pt = GptRepair.Locate(primary, 1, 0);
+        var bStart = pt.AlternateLba - 4;
+        var bFile = await ReadRegionAsync(lun, bStart, 5, "gpt_backup.bin", ct);
+        var backup = await File.ReadAllBytesAsync(bFile, ct);
+        var bt = GptRepair.Locate(backup, 4, bStart);
+        if (bt.AlternateLba != 1) throw new InvalidDataException("backup GPT does not point back at the primary; not touching it");
+
+        var pAttr = GptRepair.Attributes(primary, pt, label);
+        var bAttr = GptRepair.Attributes(backup, bt, label);
+        log.Info($"{label} attributes: primary {pAttr:x16}, backup {bAttr:x16}");
+        const ulong mark = 1UL << GptRepair.UnbootableBit;
+        if (((pAttr ?? 0) & mark) == 0 && ((bAttr ?? 0) & mark) == 0) { log.Info($"{label} is not marked unbootable"); return false; }
+
+        // Patch each copy that carries the mark; the other is left as it is.
+        var dir = Path.Combine(workDir, "gptfix");
+        Directory.CreateDirectory(dir);
+        var writes = new StringBuilder("<?xml version=\"1.0\" ?>\n<data>\n");
+        var expect = new List<(ulong Start, int Sectors, byte[] Data, string File)>();
+        if (((pAttr ?? 0) & mark) != 0)
+        {
+            var fixedP = GptRepair.ClearUnbootable(primary, pt, label);
+            await File.WriteAllBytesAsync(Path.Combine(dir, "gpt_primary_fixed.bin"), fixedP, ct);
+            writes.Append($"""  <program filename="gpt_primary_fixed.bin" label="PrimaryGPT" physical_partition_number="{lun}" start_sector="0" num_partition_sectors="{Gpt.HeadSectors}" SECTOR_SIZE_IN_BYTES="{Gpt.SectorSize}"/>""").Append('\n');
+            expect.Add((0, Gpt.HeadSectors, fixedP, "gpt_primary_check.bin"));
+        }
+        if (((bAttr ?? 0) & mark) != 0)
+        {
+            var fixedB = GptRepair.ClearUnbootable(backup, bt, label);
+            await File.WriteAllBytesAsync(Path.Combine(dir, "gpt_backup_fixed.bin"), fixedB, ct);
+            writes.Append($"""  <program filename="gpt_backup_fixed.bin" label="BackupGPT" physical_partition_number="{lun}" start_sector="{bStart}" num_partition_sectors="5" SECTOR_SIZE_IN_BYTES="{Gpt.SectorSize}"/>""").Append('\n');
+            expect.Add((bStart, 5, fixedB, "gpt_backup_check.bin"));
+        }
+        writes.Append("</data>\n");
+
+        if (DryRun)
+        {
+            await File.WriteAllTextAsync(Path.Combine(workDir, "gptfix-dryrun.xml"), writes.ToString(), ct);
+            log.Warn($"DRY RUN: would clear the unbootable mark on {label} ({expect.Count} table copies)");
+            return true;
+        }
+        log.Info($"clearing the unbootable mark on {label} in {expect.Count} table copies");
+        await SendAsync(writes.ToString(), "repair slot", ct, dir, isFullXml: true);
+
+        foreach (var (start, sectors, data, file) in expect)
+        {
+            var back = await File.ReadAllBytesAsync(await ReadRegionAsync(lun, start, sectors, file, ct), ct);
+            if (!back.AsSpan().SequenceEqual(data)) throw new EdlException($"The partition table at sector {start} reads back different from what was written.", null);
+        }
+        log.Info($"{label} is bootable again (both table copies checked)");
+        return true;
+    }
+
+    /// <summary>Reads raw sectors outside any partition (partition tables).</summary>
+    async Task<string> ReadRegionAsync(int lun, ulong start, int sectors, string file, CancellationToken ct)
+    {
+        File.Delete(Path.Combine(workDir, file));
+        await SendAsync($"""<read filename="{file}" physical_partition_number="{lun}" start_sector="{start}" num_partition_sectors="{sectors}" SECTOR_SIZE_IN_BYTES="{Gpt.SectorSize}" label="gpt"/>""",
+            $"read sectors {start}+{sectors} of LUN {lun}", ct);
+        var path = Path.Combine(workDir, file);
+        if (!File.Exists(path) || new FileInfo(path).Length != (long)sectors * Gpt.SectorSize)
+            throw new EdlException($"Reading LUN {lun} sectors {start}+{sectors} returned no or short data.", null);
+        return path;
+    }
+
     public async Task ResetAsync(CancellationToken ct)
     {
         if (DryRun) { log.Warn("DRY RUN: would reboot the phone"); return; }
@@ -170,9 +262,6 @@ public sealed partial class EdlSession(EdlTools tools, ProcessRunner run, Log lo
     static string Esc(string s) => SecurityElement.Escape(s);
     static string Size(ulong sectors) => sectors * Gpt.SectorSize >= 1 << 20
         ? $"{sectors * Gpt.SectorSize / (1 << 20)} MiB" : $"{sectors * Gpt.SectorSize / 1024} KiB";
-
-    [GeneratedRegex(@"\(COM(\d+)\)")]
-    private static partial Regex ComRx();
 }
 
 public sealed class EdlException(string message, ProcessResult? result)

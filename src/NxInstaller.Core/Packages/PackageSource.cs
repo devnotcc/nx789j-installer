@@ -28,7 +28,7 @@ public sealed class GitHubReleaseSource(HttpClient http, string repository) : IP
         List<GhRelease> releases;
         try
         {
-            releases = await http.GetFromJsonAsync<List<GhRelease>>($"https://api.github.com/repos/{repository}/releases?per_page=50", ct) ?? [];
+            releases = await http.GetFromJsonAsync($"https://api.github.com/repos/{repository}/releases?per_page=50", CoreJson.Default.ListGhRelease, ct) ?? [];
         }
         catch (HttpRequestException e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -61,14 +61,6 @@ public sealed class GitHubReleaseSource(HttpClient http, string repository) : IP
         return dest;
     }
 
-    sealed record GhRelease(
-        [property: JsonPropertyName("tag_name")] string TagName,
-        [property: JsonPropertyName("draft")] bool Draft,
-        [property: JsonPropertyName("assets")] List<GhAsset> Assets);
-
-    sealed record GhAsset(
-        [property: JsonPropertyName("name")] string Name,
-        [property: JsonPropertyName("browser_download_url")] string BrowserDownloadUrl);
 }
 
 /// <summary>Packages in a local folder or USB drive: one sub-folder per package with its manifest.json.</summary>

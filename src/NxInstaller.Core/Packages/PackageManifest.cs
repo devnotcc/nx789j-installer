@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace NxInstaller.Core.Packages;
 
@@ -50,16 +51,20 @@ public sealed record PackageManifest
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) },
+        TypeInfoResolver = CoreJson.Default,
     };
+
+    /// <summary>Typed metadata for T under <see cref="Json"/> (generated at compile time, trim-safe).</summary>
+    internal static JsonTypeInfo<T> Info<T>() => (JsonTypeInfo<T>)Json.GetTypeInfo(typeof(T));
 
     public static PackageManifest Load(string json)
     {
-        var m = JsonSerializer.Deserialize<PackageManifest>(json, Json) ?? throw new InvalidDataException("empty manifest");
+        var m = JsonSerializer.Deserialize(json, Info<PackageManifest>()) ?? throw new InvalidDataException("empty manifest");
         m.Validate();
         return m;
     }
 
-    public string ToJson() => JsonSerializer.Serialize(this, Json);
+    public string ToJson() => JsonSerializer.Serialize(this, Info<PackageManifest>());
 
     public void Validate()
     {

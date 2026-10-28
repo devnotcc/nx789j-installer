@@ -148,7 +148,7 @@ public static class PackageBuilder
 
     public static PackageSpec LoadSpec(string path)
     {
-        var spec = JsonSerializer.Deserialize<PackageSpec>(File.ReadAllText(path), PackageManifest.Json)
+        var spec = JsonSerializer.Deserialize(File.ReadAllText(path), PackageManifest.Info<PackageSpec>())
                    ?? throw new InvalidDataException("empty spec");
         // Image sources are relative to the spec file.
         var dir = Path.GetDirectoryName(Path.GetFullPath(path))!;

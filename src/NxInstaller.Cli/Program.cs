@@ -30,6 +30,8 @@ try
         case "edl-info": return await EdlInfo();
         case "backup": return await BackupPartitions(args.ElementAtOrDefault(1), args.Contains("--super"), args.Contains("--userdata"));
         case "install": return await InstallPkg(args);
+        case "repair-slot": return await RepairSlot(args.Contains("--dry-run"));
+        case "kernel": return await Kernel(args);
         case "pack": return await Pack(args.ElementAtOrDefault(1), args.ElementAtOrDefault(2));
         default: Usage(); return 1;
     }
@@ -188,6 +190,35 @@ async Task<int> InstallPkg(string[] a)
     return 0;
 }
 
+async Task<int> RepairSlot(bool dry)
+{
+    var tools = EdlTools.FindDefault(null) ?? throw new InvalidOperationException("EDL tools not found (ZTE toolbox)");
+    var edl = new EdlSession(tools, run, log, Path.Combine(AppPaths.Work, "edl")) { DryRun = dry };
+    // a phone with an unbootable slot can't reach Android; it has to be put in EDL by hand
+    var port = EdlSession.FindPort() ?? await edl.WaitForPortAsync(TimeSpan.FromMinutes(3), ct);
+    await edl.ConnectAsync(port, ct);
+    var slot = InstallPlanner.ActiveSlot(edl.Table!);
+    var changed = await edl.RepairSlotAsync(slot, ct);
+    Console.WriteLine(changed ? $"slot {slot} repaired" : $"slot {slot} was not marked unbootable; nothing written");
+    await edl.ResetAsync(ct);
+    return 0;
+}
+
+async Task<int> Kernel(string[] a)
+{
+    var id = a.ElementAtOrDefault(1);
+    if (id is null) { log.Error("usage: nxcli kernel <package-id> [--source DIR] [--dry-run]"); return 1; }
+    var entry = (await LoadSource(Opt(a, "--source"))).FirstOrDefault(e => e.Manifest.Id == id)
+        ?? throw new InvalidOperationException($"package {id} not found");
+    var adb = await AdbAsync();
+    var probe = await new DeviceProbe(adb, new Fastboot(PlatformTools.FastbootExe, run)).ProbeAsync(ct);
+    var tools = EdlTools.FindDefault(null) ?? throw new InvalidOperationException("EDL tools not found (ZTE toolbox)");
+    var inst = new Installer(log, run, adb, tools);
+    inst.Step += st => Console.WriteLine($"  [{st.Progress,5:P0}] {st.Title}");
+    await inst.InstallAsync(entry, Installer.KernelOnly(a.Contains("--dry-run")), probe.Mode == PhoneMode.Android ? probe.Serial : null, ct);
+    return 0;
+}
+
 async Task<int> Pack(string? spec, string? outDir)
 {
     if (spec is null || outDir is null) { log.Error("usage: nxcli pack <spec.json> <out-dir>"); return 1; }
@@ -256,5 +287,7 @@ static void Usage() => Console.WriteLine("""
       edl-info                   reboot to EDL and show lock state + partitions (read only)
       backup [DIR] [--super] [--userdata]   full partition backup over EDL (read only)
       install <id> [--source DIR] [--dry-run] [--twrp] [--wipe] [--no-backup]
+      repair-slot [--dry-run]    clear the 'unbootable' mark on the active slot (phone in EDL)
+      kernel <id> [--dry-run]    rewrite only boot + init_boot from a package (keeps data)
       pack <spec.json> <out-dir>   build a package (zstd, split parts, manifest.json)
     """);
