@@ -1,0 +1,10 @@
+bin/
+obj/
+*.user
+.vs/
+artifacts/
+# Never commit keyboxes: they carry private keys, and a published one gets revoked fast.
+# The keybox tests read real files from tests/.../data locally and skip when they're absent.
+*.keybox
+keybox*.xml
+tests/**/data/keybox-*.xml
