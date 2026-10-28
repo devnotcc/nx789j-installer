@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.WindowsVmPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Windows 11 virtual machine" />
+            <TextBlock Style="{StaticResource PageIntro}"
+                       Text="Runs Windows 11 for ARM in a window on the Debian desktop, using the phone's hypervisor and GPU. Windows itself isn't included: you provide the ISO from Microsoft, and need your own licence to activate it." />
+
+            <StackPanel x:Name="Rows" Spacing="8" Margin="0,0,0,20" />
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2">
+                        <TextBlock x:Name="IsoName" Text="No ISO chosen" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="Windows 11 ARM64 ISO (from microsoft.com/software-download/windows11arm64)" TextWrapping="Wrap" Opacity="0.75" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Choose ISO…" Click="Choose_Click" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <Button x:Name="SetupButton" Content="Set up the VM" Style="{StaticResource AccentButtonStyle}" IsEnabled="False" />
+            <TextBlock Text="Available once the Debian package is published." Opacity="0.7" Margin="0,8,0,0"
+                       Style="{StaticResource CaptionTextBlockStyle}" />
+        </local:PageStack>
+    </ScrollViewer>
+</Page>

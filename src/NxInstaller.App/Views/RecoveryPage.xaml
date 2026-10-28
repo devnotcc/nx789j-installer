@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.RecoveryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Recovery and restart" />
+            <TextBlock Style="{StaticResource PageIntro}" Text="Restart the phone into another mode, or repair one that won't start." />
+
+            <TextBlock Text="Restart into" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,10" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                <Button Content="Recovery (TWRP)" Tag="recovery" Click="Reboot_Click" />
+                <Button Content="EDL mode" Tag="edl" Click="Reboot_Click" />
+                <Button Content="Bootloader" Tag="bootloader" Click="Reboot_Click" />
+                <Button Content="System" Tag="" Click="Reboot_Click" />
+            </StackPanel>
+            <TextBlock Text="Needs the phone booted with USB debugging on, or in TWRP." Opacity="0.7"
+                       Style="{StaticResource CaptionTextBlockStyle}" Margin="0,0,0,28" />
+
+            <TextBlock Text="Repair" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,10" />
+            <StackPanel Spacing="8">
+                <Border Style="{StaticResource Card}" Opacity="0.6">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Fix a phone that only starts into fastboot" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock TextWrapping="Wrap" Opacity="0.8" Text="Clears the bootloader's 'unbootable' mark on the active slot. Coming soon." />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Opacity="0.6">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Put the kernel back" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock TextWrapping="Wrap" Opacity="0.8" Text="Rewrites only the boot and init_boot partitions of the installed OS. Coming soon." />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+            <InfoBar x:Name="Message" IsClosable="True" Margin="0,16,0,0" />
+        </local:PageStack>
+    </ScrollViewer>
+</Page>

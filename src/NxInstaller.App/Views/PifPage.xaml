@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.PifPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Play Integrity" />
+            <TextBlock Style="{StaticResource PageIntro}"
+                       Text="Integrity checks fail when the keybox on the phone has been revoked by Google. Pick a new keybox file: it's checked against Google's revocation list before anything is installed. This app doesn't include or download keyboxes." />
+
+            <TextBlock Text="On the phone" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,10" />
+            <StackPanel x:Name="StatusRows" Spacing="8" Margin="0,0,0,8" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,28">
+                <Button x:Name="RefreshButton" Content="Refresh" Click="Refresh_Click" />
+                <Button x:Name="ClearSpoofButton" Content="Turn off Evolution X's built-in spoof" Click="ClearSpoof_Click" Visibility="Collapsed" />
+                <ProgressRing x:Name="StatusBusy" Width="16" Height="16" />
+            </StackPanel>
+
+            <TextBlock Text="Check a keybox" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,10" />
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2">
+                        <TextBlock x:Name="FileName" Text="No file chosen" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="FileHint" Text="A keybox.xml file" Opacity="0.75" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Choose file…" Click="Choose_Click" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+            <StackPanel x:Name="ReportRows" Spacing="8" Margin="0,0,0,12" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="InstallButton" Content="Install this keybox" Style="{StaticResource AccentButtonStyle}" IsEnabled="False" Click="Install_Click" />
+                <ProgressRing x:Name="InstallBusy" Width="16" Height="16" />
+            </StackPanel>
+            <InfoBar x:Name="Message" IsClosable="True" Margin="0,16,0,0" />
+        </local:PageStack>
+    </ScrollViewer>
+</Page>

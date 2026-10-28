@@ -25,7 +25,15 @@ public sealed class GitHubReleaseSource(HttpClient http, string repository) : IP
 
     public async Task<List<PackageEntry>> ListAsync(CancellationToken ct)
     {
-        var releases = await http.GetFromJsonAsync<List<GhRelease>>($"https://api.github.com/repos/{repository}/releases?per_page=50", ct) ?? [];
+        List<GhRelease> releases;
+        try
+        {
+            releases = await http.GetFromJsonAsync<List<GhRelease>>($"https://api.github.com/repos/{repository}/releases?per_page=50", ct) ?? [];
+        }
+        catch (HttpRequestException e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return []; // repository not created yet: nothing published, not a network problem
+        }
         var list = new List<PackageEntry>();
         foreach (var r in releases.Where(r => !r.Draft))
         {

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.ChooseOsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <TextBlock Style="{StaticResource PageTitle}" Text="What do you want to install?" />
+            <TextBlock Style="{StaticResource PageIntro}" Text="Pick one. You can come back and install something else later." />
+
+            <InfoBar x:Name="SourceError" Severity="Warning" IsClosable="False" Margin="0,0,0,16" />
+
+            <StackPanel x:Name="Cards" Spacing="10" />
+
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,18,0,0">
+                <TextBlock x:Name="SourceText" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" VerticalAlignment="Center" />
+                <HyperlinkButton x:Name="RefreshLink" Content="Refresh" Click="Refresh_Click" Padding="4,0" FontSize="12" />
+                <ProgressRing x:Name="LoadingRing" Width="14" Height="14" IsActive="False" />
+            </StackPanel>
+        </local:PageStack>
+    </ScrollViewer>
+</Page>

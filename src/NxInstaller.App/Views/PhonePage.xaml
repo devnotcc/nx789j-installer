@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.PhonePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Connect your phone" />
+            <TextBlock Style="{StaticResource PageIntro}" Text="Plug the phone into this PC. The checks below update by themselves." />
+
+            <Border x:Name="HowTo" Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="If the phone isn't found" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="1. On the phone, open Settings › About phone and tap Build number seven times." />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="2. Go to Settings › System › Developer options and turn on USB debugging." />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="3. Connect the cable, unlock the phone and tap Allow on the USB debugging prompt." />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="A phone that won't boot can be put in EDL mode instead: power it off, hold both volume buttons and plug in the cable." />
+                </StackPanel>
+            </Border>
+
+            <StackPanel x:Name="Rows" Spacing="8" />
+
+            <Grid x:Name="Details" Margin="0,20,0,0" ColumnSpacing="24" RowSpacing="6" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+            </Grid>
+        </local:PageStack>
+    </ScrollViewer>
+</Page>

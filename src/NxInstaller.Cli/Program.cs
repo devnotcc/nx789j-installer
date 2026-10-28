@@ -30,6 +30,7 @@ try
         case "edl-info": return await EdlInfo();
         case "backup": return await BackupPartitions(args.ElementAtOrDefault(1), args.Contains("--super"), args.Contains("--userdata"));
         case "install": return await InstallPkg(args);
+        case "pack": return await Pack(args.ElementAtOrDefault(1), args.ElementAtOrDefault(2));
         default: Usage(); return 1;
     }
 }
@@ -187,6 +188,14 @@ async Task<int> InstallPkg(string[] a)
     return 0;
 }
 
+async Task<int> Pack(string? spec, string? outDir)
+{
+    if (spec is null || outDir is null) { log.Error("usage: nxcli pack <spec.json> <out-dir>"); return 1; }
+    var m = await PackageBuilder.BuildAsync(PackageBuilder.LoadSpec(spec), outDir, log, ct: ct);
+    Console.WriteLine($"built {m.Id} {m.Version}: {m.Images.Count} image(s), {m.Images.Sum(i => i.Parts.Count)} part(s) in {outDir}");
+    return 0;
+}
+
 // ---- helpers --------------------------------------------------------------
 
 async Task<List<PackageEntry>> LoadSource(string? source)
@@ -247,4 +256,5 @@ static void Usage() => Console.WriteLine("""
       edl-info                   reboot to EDL and show lock state + partitions (read only)
       backup [DIR] [--super] [--userdata]   full partition backup over EDL (read only)
       install <id> [--source DIR] [--dry-run] [--twrp] [--wipe] [--no-backup]
+      pack <spec.json> <out-dir>   build a package (zstd, split parts, manifest.json)
     """);

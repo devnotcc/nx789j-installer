@@ -1,0 +1,18 @@
+{
+  "id": "evox",
+  "name": "Evolution X",
+  "version": "16.0-20261023",
+  "kind": "android",
+  "family": "evolutionx",
+  "description": "Evolution X 16 for the NX789J. Local update package: system only (super + vbmeta_system); boot chain, root and data stay.",
+  "compat": {
+    "models": ["NX789J"],
+    "basebands": ["SS.DE.7.0-02024.3-PAKALA_GEN_PACK-1.82720.133"]
+  },
+  "wipe": { "unlessFamily": ["evolutionx"] },
+  "notes": [],
+  "images": [
+    { "partition": "super", "slot": "none", "source": "../out/evox/super_raw.img" },
+    { "partition": "vbmeta_system", "slot": "active", "source": "../out/evox/vbmeta_system.img" }
+  ]
+}

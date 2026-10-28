@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.ToolsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Device tools" />
+            <TextBlock Style="{StaticResource PageIntro}" Text="Fixes and extras for a phone that's already set up." />
+            <StackPanel x:Name="Cards" Spacing="10" />
+        </local:PageStack>
+    </ScrollViewer>
+</Page>

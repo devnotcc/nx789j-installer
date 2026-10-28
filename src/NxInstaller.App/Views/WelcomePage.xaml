@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.WelcomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <Border Style="{StaticResource HeroIcon}">
+                <FontIcon Glyph="&#xE8EA;" FontSize="26" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+            </Border>
+
+            <TextBlock Style="{StaticResource PageTitle}" Text="A new OS for your REDMAGIC 10 Pro" />
+            <TextBlock Style="{StaticResource PageIntro}"
+                       Text="This installer puts Evolution X, LineageOS or Debian Linux on an unlocked REDMAGIC 10 Pro (NX789J). It walks you through every step and checks each one before moving on. The phone's firmware and bootloader unlock are never touched." />
+
+            <Grid ColumnSpacing="12" Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel Spacing="6">
+                        <FontIcon Glyph="&#xE823;" FontSize="18" HorizontalAlignment="Left" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Margin="0,0,0,10" />
+                        <TextBlock Text="About 20 minutes" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="Most of it is the download and runs on its own." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.75" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel Spacing="6">
+                        <FontIcon Glyph="&#xEDA2;" FontSize="18" HorizontalAlignment="Left" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Margin="0,0,0,10" />
+                        <TextBlock Text="40 GB free on this PC" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="For the images and a backup of what they replace." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.75" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource Card}">
+                    <StackPanel Spacing="6">
+                        <FontIcon Glyph="&#xE88E;" FontSize="18" HorizontalAlignment="Left" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Margin="0,0,0,10" />
+                        <TextBlock Text="A USB-C data cable" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="Connected straight to this PC, not through a hub." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.75" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="36" Height="36" CornerRadius="6" VerticalAlignment="Top" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}">
+                        <FontIcon Glyph="&#xE7BA;" FontSize="16" Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Text="Before you begin" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}" Opacity="0.85"
+                                   Text="Switching to a different OS erases everything on the phone. Back up your photos and files first." />
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}" Opacity="0.85"
+                                   Text="The bootloader must already be unlocked. This app checks it with the bootloader itself and stops if it isn't." />
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}" Opacity="0.85"
+                                   Text="This is community software, not made or supported by nubia or ZTE. Only the NX789J is supported." />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <CheckBox x:Name="Understood" Content="I understand, and I've backed up anything I want to keep" Checked="Understood_Changed" Unchecked="Understood_Changed" />
+        </local:PageStack>
+    </ScrollViewer>
+</Page>

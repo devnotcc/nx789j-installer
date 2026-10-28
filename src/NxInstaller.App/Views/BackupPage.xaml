@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.BackupPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Back up every partition" />
+            <TextBlock Style="{StaticResource PageIntro}"
+                       Text="The phone restarts into EDL mode and every partition is copied to this PC, each with a checksum. This only reads: nothing on the phone changes. Keep the backup safe; it holds this phone's calibration and unlock state." />
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="20,6">
+                <StackPanel>
+                    <Grid Padding="0,10">
+                        <StackPanel Spacing="2" Margin="0,0,140,0">
+                            <TextBlock Text="Save to" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock x:Name="Dest" TextWrapping="Wrap" Opacity="0.8" />
+                        </StackPanel>
+                        <Button Content="Change…" HorizontalAlignment="Right" VerticalAlignment="Center" Click="Change_Click" />
+                    </Grid>
+                    <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                    <Grid Padding="0,10">
+                        <StackPanel Spacing="2" Margin="0,0,140,0">
+                            <TextBlock Text="Include the system (super)" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="16 GB. Not needed to recover the phone: the OS can always be installed again." TextWrapping="Wrap" Opacity="0.8" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="Super" HorizontalAlignment="Right" OnContent="" OffContent="" MinWidth="0" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+            <TextBlock Text="Your data partition (userdata) is never included: it's encrypted with keys that only exist on the phone, so a copy can't be used."
+                       TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,0,0,20" />
+
+            <StackPanel x:Name="ProgressArea" Spacing="8" Visibility="Collapsed" Margin="0,0,0,16">
+                <Grid>
+                    <TextBlock x:Name="StepText" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock x:Name="Percent" HorizontalAlignment="Right" Opacity="0.7" />
+                </Grid>
+                <ProgressBar x:Name="Bar" Maximum="1" Height="6" />
+            </StackPanel>
+
+            <Button x:Name="StartButton" Content="Start backup" Style="{StaticResource AccentButtonStyle}" Click="Start_Click" />
+            <InfoBar x:Name="Message" IsClosable="True" Margin="0,16,0,0" />
+        </local:PageStack>
+    </ScrollViewer>
+</Page>

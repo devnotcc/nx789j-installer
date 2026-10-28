@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NxInstaller.App.Views.ThisPcPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NxInstaller.App.Views">
+
+    <ScrollViewer>
+        <local:PageStack Style="{StaticResource PageRoot}">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Checking this PC" />
+            <TextBlock Style="{StaticResource PageIntro}"
+                       Text="The installer needs a few tools on this PC. The Qualcomm tools aren't included with this app: they come from the ZTE toolbox you used to unlock the bootloader." />
+            <StackPanel x:Name="Rows" Spacing="8" />
+        </local:PageStack>
+    </ScrollViewer>
+</Page>
