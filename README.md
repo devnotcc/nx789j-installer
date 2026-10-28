@@ -82,3 +82,9 @@ dotnet publish src/NxInstaller.App -c Release -r win-x64 -p:Platform=x64 -o arti
 
 The release build is one trimmed, compressed exe (about 58 MB). Package specs for `nxcli pack`
 are in `packaging/`.
+
+## License
+
+GPL-3.0-or-later (see [LICENSE](LICENSE)). The Qualcomm EDL tools, firehose loader, Google
+platform-tools, OS images and keyboxes the app works with are not part of this repository and
+keep their own terms.
