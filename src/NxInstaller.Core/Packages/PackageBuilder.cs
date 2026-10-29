@@ -14,17 +14,25 @@ public sealed record PackageSpec
     public required string Name { get; init; }
     public required string Version { get; init; }
     public required PackageKind Kind { get; init; }
-    public string Description { get; init; } = "";
-    public bool Enabled { get; init; } = true;
+    public string Description { get => _description; init => _description = value ?? ""; }
+    readonly string _description = "";
+    // JSON keys a spec leaves out arrive as null/false from the generated reader, whatever the
+    // initializer says: optional fields are nullable or guarded, and defaulted when the manifest is made
+    public bool? Enabled { get; init; }
     public string? DisabledReason { get; init; }
     public string? Variant { get; init; }
     public string? Family { get; init; }
-    public Compatibility Compat { get; init; } = new();
-    public WipePolicy Wipe { get; init; } = new();
-    public List<string> Requires { get; init; } = [];
-    public List<string> Notes { get; init; } = [];
+    public Compatibility Compat { get => _compat; init => _compat = value ?? new(); }
+    readonly Compatibility _compat = new();
+    public WipePolicy Wipe { get => _wipe; init => _wipe = value ?? new(); }
+    readonly WipePolicy _wipe = new();
+    public List<string> Requires { get => _requires; init => _requires = value ?? []; }
+    readonly List<string> _requires = [];
+    public List<string> Notes { get => _notes; init => _notes = value ?? []; }
+    readonly List<string> _notes = [];
     public required List<SpecImage> Images { get; init; }
-    public List<SpecFile> Files { get; init; } = [];
+    public List<SpecFile> Files { get => _files; init => _files = value ?? []; }
+    readonly List<SpecFile> _files = []; // a spec without "files" must not come out null
 }
 
 public sealed record SpecImage(string Partition, SlotTarget Slot, string Source, string? Option = null);
@@ -79,7 +87,7 @@ public static class PackageBuilder
         {
             Format = files.Count > 0 ? PackageManifest.FilesFormat : 1, Files = files,
             Id = spec.Id, Name = spec.Name, Version = spec.Version, Kind = spec.Kind, Description = spec.Description,
-            Enabled = spec.Enabled, DisabledReason = spec.DisabledReason, Variant = spec.Variant, Family = spec.Family,
+            Enabled = spec.Enabled ?? true, DisabledReason = spec.DisabledReason, Variant = spec.Variant, Family = spec.Family,
             Compat = spec.Compat, Wipe = spec.Wipe, Images = images, Requires = spec.Requires, Notes = spec.Notes,
         };
         m.Validate();

@@ -32,7 +32,8 @@ public sealed record PackageManifest
     public required string Name { get; init; }
     public required string Version { get; init; }
     public required PackageKind Kind { get; init; }
-    public string Description { get; init; } = "";
+    public string Description { get => _description; init => _description = value ?? ""; }
+    readonly string _description = "";
     /// <summary>False shows the package greyed out with <see cref="DisabledReason"/>.</summary>
     public bool Enabled { get; init; } = true;
     public string? DisabledReason { get; init; }
@@ -42,14 +43,19 @@ public sealed record PackageManifest
 
     public required Compatibility Compat { get; init; }
     /// <summary>When the data partition has to be formatted (different encryption keys or OS).</summary>
-    public WipePolicy Wipe { get; init; } = new();
+    public WipePolicy Wipe { get => _wipe; init => _wipe = value ?? new(); }
+    readonly WipePolicy _wipe = new();
     public required List<PackageImage> Images { get; init; }
     /// <summary>Files copied onto the phone's storage over adb instead of written to a partition
     /// (the Linux image and its launchers). Only names in <see cref="Linux.LinuxAgent.UploadNames"/>.</summary>
-    public List<PackageFile> Files { get; init; } = [];
+    public List<PackageFile> Files { get => _files; init => _files = value ?? []; }
+    // (the generated JSON code sets a missing key to null instead of keeping the initializer)
+    readonly List<PackageFile> _files = [];
     /// <summary>Package ids that must be installed first or together (Debian needs an Android base).</summary>
-    public List<string> Requires { get; init; } = [];
-    public List<string> Notes { get; init; } = [];
+    public List<string> Requires { get => _requires; init => _requires = value ?? []; }
+    readonly List<string> _requires = [];
+    public List<string> Notes { get => _notes; init => _notes = value ?? []; }
+    readonly List<string> _notes = [];
 
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -124,7 +130,8 @@ public sealed record PackageImage
     public required string Sha256 { get; init; }
     public Compression Compression { get; init; } = Compression.None;
     /// <summary>Release assets that make up the (compressed) file, in order. One part = not split.</summary>
-    public List<FilePart> Parts { get; init; } = [];
+    public List<FilePart> Parts { get => _parts; init => _parts = value ?? []; }
+    readonly List<FilePart> _parts = [];
     /// <summary>Optional images (TWRP) are only written when the user picks them.</summary>
     public string? Option { get; init; }
 }
@@ -137,7 +144,8 @@ public sealed record PackageFile
     public long Size { get; init; }
     public required string Sha256 { get; init; }
     public Compression Compression { get; init; } = Compression.None;
-    public List<FilePart> Parts { get; init; } = [];
+    public List<FilePart> Parts { get => _parts; init => _parts = value ?? []; }
+    readonly List<FilePart> _parts = [];
 }
 
 public enum Compression { None, Zstd }

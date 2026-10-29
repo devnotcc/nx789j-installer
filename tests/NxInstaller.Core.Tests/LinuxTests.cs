@@ -107,6 +107,36 @@ public class LinuxTests
     }
 
     [Fact]
+    public void ManifestsAndSpecsWithoutFilesStillLoad()
+    {
+        // format-1 manifests (every package before Linux) have no "files" key
+        var json = """
+            { "format": 1, "id": "twrp", "name": "TWRP", "version": "1", "kind": "recovery",
+              "compat": { "models": ["NX789J"] },
+              "images": [ { "partition": "recovery", "slot": "active", "file": "recovery.img", "size": 4096,
+                            "sha256": "0000000000000000000000000000000000000000000000000000000000000000" } ] }
+            """;
+        Assert.Empty(PackageManifest.Load(json).Files);
+        var dir = Path.Combine(Path.GetTempPath(), $"nx-spec-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var spec = Path.Combine(dir, "twrp.json");
+            File.WriteAllText(spec, """{ "id": "twrp", "name": "TWRP", "version": "1", "kind": "recovery", "images": [] }""");
+            var s = PackageBuilder.LoadSpec(spec);
+            Assert.Empty(s.Files);
+            // left-out optional keys keep their defaults (the generated JSON reader would make them null/false)
+            Assert.NotEqual(false, s.Enabled);
+            Assert.NotNull(s.Wipe);
+            Assert.NotNull(s.Compat);
+            Assert.Empty(s.Requires);
+            Assert.Empty(s.Notes);
+            Assert.Equal("", s.Description);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void GateWantsAndroidForLinux()
     {
         var phone = new PhoneSnapshot { Mode = PhoneMode.Recovery, Model = "NX789J", Battery = 80, Os = PhoneOs.Twrp };

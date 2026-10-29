@@ -27,7 +27,7 @@ try
         case "keybox": return await CheckKeybox(args.ElementAtOrDefault(1));
         case "pif-status": return await PifStatus();
         case "pif-swap": return await PifSwap(args.ElementAtOrDefault(1));
-        case "list": return await ListPackages(args.ElementAtOrDefault(1));
+        case "list": return await ListPackages(Opt(args, "--source"));
         case "edl-info": return await EdlInfo();
         case "backup": return await BackupPartitions(args.ElementAtOrDefault(1), args.Contains("--super"), args.Contains("--userdata"));
         case "install": return await InstallPkg(args);
