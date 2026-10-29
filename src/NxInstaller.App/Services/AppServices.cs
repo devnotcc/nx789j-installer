@@ -36,6 +36,15 @@ public sealed partial class AppServices : ObservableObject
     /// <summary>Go through every step, including EDL, but write nothing to the phone.</summary>
     [ObservableProperty] public partial bool DryRun { get; set; }
 
+    // Linux packages
+    /// <summary>SHA-512 crypt hash of the chosen Linux password; the password itself is not kept.</summary>
+    public string? LinuxPasswordHash { get; set; }
+    [ObservableProperty] public partial double LinuxDiskGb { get; set; } = 32;
+    [ObservableProperty] public partial bool ReplaceLinux { get; set; }
+    [ObservableProperty] public partial bool BootLinux { get; set; } = true;
+
+    public bool IsLinux => Selected?.Package?.Manifest.Kind == PackageKind.Linux;
+
     /// <summary>Package family of the OS the phone runs now, for deciding whether data has to be erased.</summary>
     public string? CurrentFamily => Phone.Os switch
     {
@@ -46,7 +55,7 @@ public sealed partial class AppServices : ObservableObject
     };
 
     /// <summary>True when the selected package must format data (different OS or first install).</summary>
-    public bool WipeRequired => Selected?.Package is { } p && p.Manifest.Kind != PackageKind.Recovery
+    public bool WipeRequired => Selected?.Package is { } p && p.Manifest.Kind == PackageKind.Android
         && Core.Install.InstallPlanner.NeedsWipe(p.Manifest, CurrentFamily);
 
     public Adb? Adb { get; private set; }

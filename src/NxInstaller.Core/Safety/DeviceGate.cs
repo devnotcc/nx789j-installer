@@ -71,6 +71,17 @@ public static class DeviceGate
         else
             list.Add(new("Bootloader", CheckState.Pass, "Checked again in EDL mode before anything is written."));
 
+        if (m?.Kind == PackageKind.Linux)
+        {
+            // Linux goes on top of an installed Android, and its files are copied over adb
+            if (s.Mode != PhoneMode.Android)
+                list.Add(new("Android", CheckState.Fail, "Start the phone into Android: the Linux files are copied to it over USB debugging."));
+            else if (Linux.LinuxInstaller.CheckBase(m, FamilyOf(s.Os)) is { } why)
+                list.Add(new("Android", CheckState.Fail, why));
+            else
+                list.Add(new("Android", CheckState.Pass, $"{s.Os} {s.OsVersion}; its apps and data stay."));
+        }
+
         if (s.Os == PhoneOs.Stock)
             list.Add(new("Stock firmware", CheckState.Warn,
                 "Keep the phone offline while it runs stock: a ZTE update can patch the bootloader unlock and there is no way back."));
@@ -81,6 +92,12 @@ public static class DeviceGate
     public static Check CheckEdl(DevInfo info) => info.Unlocked
         ? new("Bootloader", CheckState.Pass, "Unlocked (read from devinfo)")
         : new("Bootloader", CheckState.Fail, "Locked (read from devinfo). Nothing will be written.");
+
+    /// <summary>Package family of an installed OS (what manifests' wipe and requires rules name).</summary>
+    public static string? FamilyOf(PhoneOs os) => os switch
+    {
+        PhoneOs.EvolutionX => "evolutionx", PhoneOs.LineageOS => "lineageos", PhoneOs.Debian => "debian", _ => null,
+    };
 
     public static bool Blocks(this IEnumerable<Check> checks) => checks.Any(c => c.State == CheckState.Fail);
 }

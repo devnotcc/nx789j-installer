@@ -6,6 +6,7 @@ using NxInstaller.App.Services;
 using NxInstaller.Core;
 using NxInstaller.Core.Device;
 using NxInstaller.Core.Install;
+using NxInstaller.Core.Linux;
 using NxInstaller.Core.Safety;
 
 namespace NxInstaller.App.Views;
@@ -55,7 +56,10 @@ public sealed partial class InstallPage : Page, IWizardPage
         {
             XamlRoot = XamlRoot,
             Title = $"Install {OsName} now?",
-            Content = erase
+            Content = _app.IsLinux
+                ? "The Linux files are copied to the phone, then it restarts into EDL mode for the Linux kernel and restarts twice more on its own. "
+                  + "Android's apps and data stay, but while this kernel is installed Android runs without root (KernelSU), so root-based modules stop working."
+                : erase
                 ? "The phone restarts into EDL mode and everything on it is erased. This can't be undone."
                 : "The phone restarts into EDL mode and the new system is written. Your apps and data stay.",
             PrimaryButtonText = erase ? "Erase and install" : "Install",
@@ -85,10 +89,28 @@ public sealed partial class InstallPage : Page, IWizardPage
         var serial = _app.Phone.Mode == PhoneMode.Android ? _app.Phone.Serial : null;
         var installer = new Installer(_app.Log, _app.Run, _app.Adb, _app.EdlTools);
         installer.Step += st => DispatcherQueue.TryEnqueue(() => SetStep(st.Title, st.Progress));
+        var linux = new LinuxInstaller(_app.Log, _app.Run, _app.Adb, _app.EdlTools);
+        linux.Step += st => DispatcherQueue.TryEnqueue(() => SetStep(st.Title, st.Progress));
+        var lo = _app.IsLinux ? new LinuxOptions
+        {
+            // a test run needs no password; it uploads nothing
+            PasswordHash = _app.LinuxPasswordHash ?? Sha512Crypt.Hash(Guid.NewGuid().ToString()),
+            ImageBytes = (long)_app.LinuxDiskGb << 30,
+            ReplaceExisting = _app.ReplaceLinux,
+            BootLinux = _app.BootLinux,
+            BackupFirst = _app.BackupFirst,
+            DryRun = _app.DryRun,
+        } : null;
+        var family = _app.CurrentFamily;
 
         try
         {
-            await Task.Run(() => installer.InstallAsync(entry, o, serial, _cts.Token));
+            if (lo is not null)
+            {
+                if (serial is null) throw new InvalidOperationException("Start the phone into Android first: the Linux files are copied over USB debugging.");
+                await Task.Run(() => linux.InstallAsync(entry, lo, serial, family, _cts.Token));
+            }
+            else await Task.Run(() => installer.InstallAsync(entry, o, serial, _cts.Token));
             _phase = Phase.Succeeded;
         }
         catch (OperationCanceledException)
@@ -162,6 +184,10 @@ public sealed partial class InstallPage : Page, IWizardPage
                 Heading.Text = dry ? "Test run finished" : $"{OsName} is installed";
                 Intro.Text = dry
                     ? "Every check passed and nothing was written. Turn off Test run on the previous page to install for real."
+                    : _app.IsLinux
+                    ? (_app.BootLinux
+                        ? "The phone is starting Linux. The desktop comes up in about a minute; the first start also grows the Linux disk."
+                        : "Linux is installed. Android keeps starting until Linux is chosen as the boot mode.")
                     : "The phone is restarting. The first start takes a few minutes; it may restart once on its own.";
                 Result.Severity = InfoBarSeverity.Success;
                 Result.Title = dry ? "Nothing was written" : "Done";

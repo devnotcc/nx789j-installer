@@ -94,7 +94,17 @@ public sealed class FolderSource(string root) : IPackageSource
 /// <summary>Turns downloaded parts into the final raw image and verifies it.</summary>
 public static class ImageAssembler
 {
-    public static async Task<string> AssembleAsync(PackageEntry entry, PackageImage image, string downloadDir, string outDir,
+    public static Task<string> AssembleAsync(PackageEntry entry, PackageImage image, string downloadDir, string outDir,
+        Log log, IProgress<double>? progress, CancellationToken ct) =>
+        AssembleAsync(entry, new Item(image.File, image.Size, image.Sha256, image.Compression, image.Parts), downloadDir, outDir, log, progress, ct);
+
+    public static Task<string> AssembleAsync(PackageEntry entry, PackageFile file, string downloadDir, string outDir,
+        Log log, IProgress<double>? progress, CancellationToken ct) =>
+        AssembleAsync(entry, new Item(file.File, file.Size, file.Sha256, file.Compression, file.Parts), downloadDir, outDir, log, progress, ct);
+
+    sealed record Item(string File, long Size, string Sha256, Compression Compression, List<FilePart> Parts);
+
+    static async Task<string> AssembleAsync(PackageEntry entry, Item image, string downloadDir, string outDir,
         Log log, IProgress<double>? progress, CancellationToken ct)
     {
         Directory.CreateDirectory(outDir);

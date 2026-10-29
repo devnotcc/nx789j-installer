@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NxInstaller.App.Services;
 using NxInstaller.Core.Install;
+using NxInstaller.Core.Linux;
 using NxInstaller.Core.Packages;
 
 namespace NxInstaller.App.Views;
@@ -18,7 +19,11 @@ public sealed partial class OptionsPage : Page, IWizardPage
     }
 
     public string PrimaryText => Dry.IsOn ? "Start test run" : "Next";
-    public bool CanContinue => !_app.WipeRequired || WipeConfirm.IsChecked == true || Dry.IsOn;
+    public bool CanContinue => _app.IsLinux
+        ? _app.LinuxPasswordHash is not null || Dry.IsOn
+        : !_app.WipeRequired || WipeConfirm.IsChecked == true || Dry.IsOn;
+
+    const int MinPassword = 4;
     public event EventHandler? StateChanged;
 
     PackageManifest? Manifest => _app.Selected?.Package?.Manifest;
@@ -31,7 +36,15 @@ public sealed partial class OptionsPage : Page, IWizardPage
 
         var wipe = _app.WipeRequired;
         WipeCard.Visibility = wipe ? Visibility.Visible : Visibility.Collapsed;
-        KeepCard.Visibility = wipe || m?.Kind == PackageKind.Recovery ? Visibility.Collapsed : Visibility.Visible;
+        KeepCard.Visibility = wipe || m?.Kind != PackageKind.Android ? Visibility.Collapsed : Visibility.Visible;
+        LinuxCard.Visibility = _app.IsLinux ? Visibility.Visible : Visibility.Collapsed;
+        DiskGb.Value = _app.LinuxDiskGb;
+        ReplaceLinux.IsOn = _app.ReplaceLinux;
+        BootLinux.IsOn = _app.BootLinux;
+        // the password is never kept on this page: going back means typing it again
+        _app.LinuxPasswordHash = null;
+        LinuxPassword.Password = LinuxPassword2.Password = "";
+        PasswordHint.Text = $"At least {MinPassword} characters.";
         var current = MainWindow.OsName(_app.Phone.Os);
         WipeReason.Text = _app.CurrentFamily is null
             ? $"The phone runs {current}. {m?.Name} uses different encryption, so the data partition is formatted."
@@ -58,8 +71,28 @@ public sealed partial class OptionsPage : Page, IWizardPage
         _app.IncludeTwrp = Twrp.IsOn;
         _app.BackupFirst = Backup.IsOn;
         _app.DryRun = Dry.IsOn;
+        _app.ReplaceLinux = ReplaceLinux.IsOn;
+        _app.BootLinux = BootLinux.IsOn;
         RenderWrites();
         StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    void Password_Changed(object sender, RoutedEventArgs e)
+    {
+        var a = LinuxPassword.Password;
+        var ok = a.Length >= MinPassword && a == LinuxPassword2.Password;
+        _app.LinuxPasswordHash = ok ? Sha512Crypt.Hash(a) : null;
+        PasswordHint.Text = a.Length < MinPassword ? $"At least {MinPassword} characters."
+            : LinuxPassword2.Password.Length == 0 ? "Type it again below."
+            : ok ? "The passwords match." : "The passwords don't match.";
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    void DiskGb_Changed(NumberBox sender, NumberBoxValueChangedEventArgs e)
+    {
+        if (_loading || double.IsNaN(sender.Value)) return;
+        _app.LinuxDiskGb = Math.Round(sender.Value);
+        RenderWrites();
     }
 
     void RenderWrites()
@@ -73,6 +106,9 @@ public sealed partial class OptionsPage : Page, IWizardPage
             WriteList.Children.Add(Line(label, Size(img.Size)));
         }
         if (_app.WipeRequired || _app.EraseAnyway) WriteList.Children.Add(Line("metadata, userdata", "erased"));
+        foreach (var f in m.Files) WriteList.Children.Add(Line($"{LinuxAgent.InstallDir}/{f.File}", Size(f.Size)));
+        if (m.Kind == PackageKind.Linux)
+            WriteList.Children.Add(Line($"{LinuxAgent.InstallDir}/{LinuxAgent.Image} grown to", $"{_app.LinuxDiskGb:0} GB"));
         WriteList.Children.Add(new TextBlock
         {
             Text = "Firmware (bootloaders, modem, TrustZone) and the bootloader unlock are never written.",

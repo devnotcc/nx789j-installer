@@ -24,9 +24,13 @@ public sealed record PackageSpec
     public List<string> Requires { get; init; } = [];
     public List<string> Notes { get; init; } = [];
     public required List<SpecImage> Images { get; init; }
+    public List<SpecFile> Files { get; init; } = [];
 }
 
 public sealed record SpecImage(string Partition, SlotTarget Slot, string Source, string? Option = null);
+
+/// <summary>A file uploaded to the phone over adb, under the name <paramref name="File"/>.</summary>
+public sealed record SpecFile(string File, string Source);
 
 /// <summary>
 /// Builds a publishable package: each image is checksummed, zstd-compressed and cut into parts
@@ -53,27 +57,7 @@ public static class PackageBuilder
                 throw new InvalidDataException(why); // fail at build time, not on a user's phone
 
             var file = $"{img.Partition}.img";
-            log.Info($"{file}: compressing {src.Length >> 20} MiB");
-            var parts = new List<FilePart>();
-            string rawSha;
-            await using (var input = new FileStream(src.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan))
-            using (var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
-            {
-                await using var split = new SplitWriter(outDir, file + ".zst", partSize, parts);
-                await using (var z = new CompressionStream(split, level, leaveOpen: true))
-                {
-                    z.SetParameter(ZstdSharp.Unsafe.ZSTD_cParameter.ZSTD_c_nbWorkers, Math.Max(1, Environment.ProcessorCount - 1));
-                    var buf = new byte[4 << 20];
-                    int n;
-                    while ((n = await input.ReadAsync(buf, ct)) > 0)
-                    {
-                        sha.AppendData(buf, 0, n);
-                        await z.WriteAsync(buf.AsMemory(0, n), ct);
-                    }
-                }
-                rawSha = Convert.ToHexStringLower(sha.GetHashAndReset());
-            }
-            log.Info($"{file}: {parts.Count} part(s), {parts.Sum(p => p.Size) >> 20} MiB compressed");
+            var (parts, rawSha) = await CompressAsync(src, file, outDir, log, level, partSize, ct);
             images.Add(new PackageImage
             {
                 Partition = img.Partition, Slot = img.Slot, File = file, Size = src.Length, Sha256 = rawSha,
@@ -81,8 +65,19 @@ public static class PackageBuilder
             });
         }
 
+        var files = new List<PackageFile>();
+        foreach (var f in spec.Files)
+        {
+            var src = new FileInfo(f.Source);
+            if (!src.Exists) throw new FileNotFoundException(f.Source);
+            if (!Linux.LinuxAgent.UploadNames.Contains(f.File)) throw new InvalidDataException($"{f.File} is not a file the phone accepts");
+            var (parts, rawSha) = await CompressAsync(src, f.File, outDir, log, level, partSize, ct);
+            files.Add(new PackageFile { File = f.File, Size = src.Length, Sha256 = rawSha, Compression = Compression.Zstd, Parts = parts });
+        }
+
         var m = new PackageManifest
         {
+            Format = files.Count > 0 ? PackageManifest.FilesFormat : 1, Files = files,
             Id = spec.Id, Name = spec.Name, Version = spec.Version, Kind = spec.Kind, Description = spec.Description,
             Enabled = spec.Enabled, DisabledReason = spec.DisabledReason, Variant = spec.Variant, Family = spec.Family,
             Compat = spec.Compat, Wipe = spec.Wipe, Images = images, Requires = spec.Requires, Notes = spec.Notes,
@@ -90,6 +85,33 @@ public static class PackageBuilder
         m.Validate();
         await File.WriteAllTextAsync(Path.Combine(outDir, "manifest.json"), m.ToJson(), ct);
         return m;
+    }
+
+    /// <summary>zstd-compresses <paramref name="src"/> into numbered parts named after <paramref name="file"/>; returns them and the raw SHA-256.</summary>
+    static async Task<(List<FilePart>, string)> CompressAsync(FileInfo src, string file, string outDir, Log log, int level, long partSize, CancellationToken ct)
+    {
+        log.Info($"{file}: compressing {src.Length >> 20} MiB");
+        var parts = new List<FilePart>();
+        string rawSha;
+        await using (var input = new FileStream(src.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan))
+        using (var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+        {
+            await using var split = new SplitWriter(outDir, file + ".zst", partSize, parts);
+            await using (var z = new CompressionStream(split, level, leaveOpen: true))
+            {
+                z.SetParameter(ZstdSharp.Unsafe.ZSTD_cParameter.ZSTD_c_nbWorkers, Math.Max(1, Environment.ProcessorCount - 1));
+                var buf = new byte[4 << 20];
+                int n;
+                while ((n = await input.ReadAsync(buf, ct)) > 0)
+                {
+                    sha.AppendData(buf, 0, n);
+                    await z.WriteAsync(buf.AsMemory(0, n), ct);
+                }
+            }
+            rawSha = Convert.ToHexStringLower(sha.GetHashAndReset());
+        }
+        log.Info($"{file}: {parts.Count} part(s), {parts.Sum(p => p.Size) >> 20} MiB compressed");
+        return (parts, rawSha);
     }
 
     /// <summary>Writes a stream into numbered part files (name.001, name.002, ...), hashing each.</summary>
@@ -152,6 +174,10 @@ public static class PackageBuilder
                    ?? throw new InvalidDataException("empty spec");
         // Image sources are relative to the spec file.
         var dir = Path.GetDirectoryName(Path.GetFullPath(path))!;
-        return spec with { Images = spec.Images.Select(i => i with { Source = Path.GetFullPath(i.Source, dir) }).ToList() };
+        return spec with
+        {
+            Images = spec.Images.Select(i => i with { Source = Path.GetFullPath(i.Source, dir) }).ToList(),
+            Files = spec.Files.Select(f => f with { Source = Path.GetFullPath(f.Source, dir) }).ToList(),
+        };
     }
 }

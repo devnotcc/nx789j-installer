@@ -42,6 +42,36 @@
                 </Grid>
             </Border>
 
+            <!-- Linux: account and disk -->
+            <Border x:Name="LinuxCard" Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Linux account" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85"
+                               Text="Linux starts straight to the desktop as the user 'nx'. This password is for administrator tasks (sudo, settings that ask for it). Only a scrambled form of it (SHA-512) is sent to the phone." />
+                    <PasswordBox x:Name="LinuxPassword" Header="Password" PasswordChanged="Password_Changed" MaxWidth="360" HorizontalAlignment="Left" Width="360" />
+                    <PasswordBox x:Name="LinuxPassword2" Header="Password again" PasswordChanged="Password_Changed" MaxWidth="360" HorizontalAlignment="Left" Width="360" />
+                    <TextBlock x:Name="PasswordHint" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <NumberBox x:Name="DiskGb" Header="Linux disk size (GB)" Minimum="12" Maximum="400" SmallChange="4" LargeChange="16"
+                               SpinButtonPlacementMode="Inline" ValueChanged="DiskGb_Changed" MaxWidth="240" HorizontalAlignment="Left" Width="240" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}"
+                               Text="Space on the phone's storage that Linux may fill up. It is only taken as Linux uses it; Android's apps and data stay." />
+                    <Grid>
+                        <StackPanel Spacing="2" Margin="0,0,120,0">
+                            <TextBlock Text="Replace an existing Linux install" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="Only if Linux is already on the phone: its files are deleted and it starts fresh." TextWrapping="Wrap" Opacity="0.8" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="ReplaceLinux" HorizontalAlignment="Right" OnContent="" OffContent="" MinWidth="0" Toggled="Changed" />
+                    </Grid>
+                    <Grid>
+                        <StackPanel Spacing="2" Margin="0,0,120,0">
+                            <TextBlock Text="Start Linux when done" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="Off: Android keeps starting, and Linux is ready to switch to later." TextWrapping="Wrap" Opacity="0.8" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="BootLinux" HorizontalAlignment="Right" OnContent="" OffContent="" MinWidth="0" Toggled="Changed" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <!-- Options -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="20,6">
                 <StackPanel>

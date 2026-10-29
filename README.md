@@ -14,9 +14,30 @@ keeps the phone's firmware and unlock untouched.
 | **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | packaged, draft release |
 | **TWRP** recovery on its own | packaged, draft release |
 | **LineageOS** 23.2, with or without Google apps | being built; shown as "Coming soon" |
-| **Debian 13 + KDE Plasma** | not packaged yet |
+| **Debian 13 + KDE Plasma** (on top of an installed Evolution X / LineageOS) | packaged, draft release |
 
 Draft releases are not visible to the app or the public until they're published.
+
+### How the Linux install works
+
+Debian runs next to Android on the same kernel: Android's native side keeps loading the
+drivers, firmware and vendor services, and Debian (systemd in its own namespaces) takes the
+screen. The package carries a second kernel (no KernelSU, with the namespaces systemd needs) and
+an init_boot with a small boot helper and an **install agent**:
+
+1. The installer copies the Linux image and its launchers to `/data/local/tmp/nx-install` over
+   adb, plus `firstboot.conf` (your Linux password as a SHA-512 crypt hash, never the password),
+   then a manifest (name, size, SHA-256 of every file) and `READY`.
+2. It writes the kernel (boot + init_boot of the active slot) over EDL, like any other package.
+3. On the next boot the agent takes the upload out of the adb user's reach, checks every file
+   against the manifest, accepts only a fixed list of names, refuses symlinks and hard links,
+   never replaces an installed Linux unless asked, moves the files into `/data/nx-linux` as root,
+   grows the image to the chosen size, and writes `STATUS` (`ok` / `error <reason>`).
+4. The installer reads `STATUS`, sets the boot mode the same way, and restarts into Linux.
+   Debian sets the password, grows its filesystem and makes its SSH host keys on the first start.
+
+Android's apps and data stay. While the Linux kernel is installed Android runs without
+KernelSU (root modules stop working); the Recovery tool puts the OS package's kernel back.
 
 ## Toolbox
 
@@ -68,6 +89,7 @@ nxcli pif-swap <file>       check then install a keybox (no reboot)
 nxcli edl-info              EDL lock state + partition count (read-only)
 nxcli backup [dir]          full partition backup over EDL (read-only)
 nxcli install <id> [--dry-run] [--twrp] [--wipe] [--source dir]
+            Linux: [--size GB] [--replace] [--stay-android] [--password-file f]
 nxcli repair-slot [--dry-run]   clear the "unbootable" mark on the active slot (phone in EDL)
 nxcli kernel <id> [--dry-run]   rewrite only boot + init_boot from a package
 nxcli pack <spec.json> <dir>    build a package: zstd, split under 2 GiB, manifest.json

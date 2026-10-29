@@ -22,7 +22,10 @@ public enum SlotTarget
 /// </summary>
 public sealed record PackageManifest
 {
-    public const int CurrentFormat = 1;
+    public const int CurrentFormat = 2;
+    /// <summary>Format of a manifest that has <see cref="Files"/>: older installers must refuse it,
+    /// since they would write the kernel and skip the files.</summary>
+    public const int FilesFormat = 2;
 
     public int Format { get; init; } = CurrentFormat;
     public required string Id { get; init; }
@@ -41,6 +44,9 @@ public sealed record PackageManifest
     /// <summary>When the data partition has to be formatted (different encryption keys or OS).</summary>
     public WipePolicy Wipe { get; init; } = new();
     public required List<PackageImage> Images { get; init; }
+    /// <summary>Files copied onto the phone's storage over adb instead of written to a partition
+    /// (the Linux image and its launchers). Only names in <see cref="Linux.LinuxAgent.UploadNames"/>.</summary>
+    public List<PackageFile> Files { get; init; } = [];
     /// <summary>Package ids that must be installed first or together (Debian needs an Android base).</summary>
     public List<string> Requires { get; init; } = [];
     public List<string> Notes { get; init; } = [];
@@ -79,6 +85,15 @@ public sealed record PackageManifest
             if (Safety.PartitionPolicy.BaseName(i.Partition) != i.Partition)
                 throw new InvalidDataException($"{Id}: name the partition without a slot suffix ({i.Partition}); use slot: active");
         }
+        foreach (var f in Files)
+        {
+            if (!Linux.LinuxAgent.UploadNames.Contains(f.File)) throw new InvalidDataException($"{Id}: {f.File} is not a file the phone accepts");
+            if (f.Sha256.Length != 64) throw new InvalidDataException($"{Id}: {f.File} has no valid sha256");
+            if (f.Size <= 0) throw new InvalidDataException($"{Id}: {f.File} has no size");
+        }
+        if (Files.Count > 0 && Format < FilesFormat) throw new InvalidDataException($"{Id}: a manifest with files must be format {FilesFormat}");
+        if (Kind == PackageKind.Linux && !Files.Any(f => f.File == Linux.LinuxAgent.Image))
+            throw new InvalidDataException($"{Id}: a Linux package needs {Linux.LinuxAgent.Image}");
     }
 }
 
@@ -112,6 +127,17 @@ public sealed record PackageImage
     public List<FilePart> Parts { get; init; } = [];
     /// <summary>Optional images (TWRP) are only written when the user picks them.</summary>
     public string? Option { get; init; }
+}
+
+/// <summary>A file the installer uploads to the phone (see <see cref="PackageManifest.Files"/>).</summary>
+public sealed record PackageFile
+{
+    /// <summary>Name on the phone, after joining and decompressing.</summary>
+    public required string File { get; init; }
+    public long Size { get; init; }
+    public required string Sha256 { get; init; }
+    public Compression Compression { get; init; } = Compression.None;
+    public List<FilePart> Parts { get; init; } = [];
 }
 
 public enum Compression { None, Zstd }

@@ -3,6 +3,7 @@ using NxInstaller.Core.Backup;
 using NxInstaller.Core.Device;
 using NxInstaller.Core.Edl;
 using NxInstaller.Core.Install;
+using NxInstaller.Core.Linux;
 using NxInstaller.Core.Packages;
 using NxInstaller.Core.Pif;
 using NxInstaller.Core.Safety;
@@ -174,6 +175,7 @@ async Task<int> InstallPkg(string[] a)
     var adb = await AdbAsync();
     var probe = await new DeviceProbe(adb, new Fastboot(PlatformTools.FastbootExe, run)).ProbeAsync(ct);
     var tools = EdlTools.FindDefault(null) ?? throw new InvalidOperationException("EDL tools (ZTE toolbox) not found; pass its folder in settings");
+    if (entry.Manifest.Kind == PackageKind.Linux) return await InstallLinux(a, entry, adb, probe, tools);
 
     var o = new InstallOptions
     {
@@ -188,6 +190,51 @@ async Task<int> InstallPkg(string[] a)
     inst.Step += st => Console.WriteLine($"  [{st.Progress,5:P0}] {st.Title}");
     await inst.InstallAsync(entry, o, probe.Mode == PhoneMode.Android ? probe.Serial : null, ct);
     return 0;
+}
+
+async Task<int> InstallLinux(string[] a, PackageEntry entry, Adb adb, PhoneSnapshot probe, EdlTools tools)
+{
+    if (probe.Mode != PhoneMode.Android || probe.Serial is null) { log.Error("start the phone into Android first (the Linux files are copied over adb)"); return 1; }
+    if (LinuxInstaller.CheckBase(entry.Manifest, FamilyOf(probe.Os)) is { } why) { log.Error(why); return 1; }
+    var dry = a.Contains("--dry-run");
+    string password;
+    if (Opt(a, "--password-file") is { } pf) password = File.ReadAllText(pf).TrimEnd('\r', '\n');
+    else
+    {
+        password = ReadSecret("Password for the Linux account 'nx': ");
+        if (ReadSecret("Again: ") != password) { log.Error("the passwords differ"); return 1; }
+    }
+    if (password.Length < 4) { log.Error("use a password of at least 4 characters"); return 1; }
+    var gb = Opt(a, "--size") is { } sz ? long.Parse(sz) : 32;
+    var o = new LinuxOptions
+    {
+        PasswordHash = Sha512Crypt.Hash(password),
+        ImageBytes = gb << 30,
+        ReplaceExisting = a.Contains("--replace"),
+        BootLinux = !a.Contains("--stay-android"),
+        BackupFirst = !a.Contains("--no-backup"),
+        DryRun = dry,
+    };
+    Console.WriteLine($"install {entry.Manifest.Name} {entry.Manifest.Version} on top of {probe.Os}  (disk {gb} GiB, replace={o.ReplaceExisting}, dryrun={dry})");
+    var inst = new LinuxInstaller(log, run, adb, tools);
+    inst.Step += st => Console.WriteLine($"  [{st.Progress,5:P0}] {st.Title}");
+    await inst.InstallAsync(entry, o, probe.Serial, FamilyOf(probe.Os), ct);
+    return 0;
+}
+
+static string ReadSecret(string prompt)
+{
+    Console.Write(prompt);
+    var sb = new System.Text.StringBuilder();
+    while (true)
+    {
+        var k = Console.ReadKey(intercept: true);
+        if (k.Key == ConsoleKey.Enter) break;
+        if (k.Key == ConsoleKey.Backspace) { if (sb.Length > 0) sb.Length--; continue; }
+        if (!char.IsControl(k.KeyChar)) sb.Append(k.KeyChar);
+    }
+    Console.WriteLine();
+    return sb.ToString();
 }
 
 async Task<int> RepairSlot(bool dry)
@@ -223,7 +270,7 @@ async Task<int> Pack(string? spec, string? outDir)
 {
     if (spec is null || outDir is null) { log.Error("usage: nxcli pack <spec.json> <out-dir>"); return 1; }
     var m = await PackageBuilder.BuildAsync(PackageBuilder.LoadSpec(spec), outDir, log, ct: ct);
-    Console.WriteLine($"built {m.Id} {m.Version}: {m.Images.Count} image(s), {m.Images.Sum(i => i.Parts.Count)} part(s) in {outDir}");
+    Console.WriteLine($"built {m.Id} {m.Version}: {m.Images.Count} image(s), {m.Files.Count} file(s), {m.Images.Sum(i => i.Parts.Count) + m.Files.Sum(f => f.Parts.Count)} part(s) in {outDir}");
     return 0;
 }
 
@@ -287,6 +334,7 @@ static void Usage() => Console.WriteLine("""
       edl-info                   reboot to EDL and show lock state + partitions (read only)
       backup [DIR] [--super] [--userdata]   full partition backup over EDL (read only)
       install <id> [--source DIR] [--dry-run] [--twrp] [--wipe] [--no-backup]
+                 Linux packages: [--size GB] [--replace] [--stay-android] [--password-file FILE]
       repair-slot [--dry-run]    clear the 'unbootable' mark on the active slot (phone in EDL)
       kernel <id> [--dry-run]    rewrite only boot + init_boot from a package (keeps data)
       pack <spec.json> <out-dir>   build a package (zstd, split parts, manifest.json)
