@@ -240,7 +240,7 @@ public sealed class EdlSession(EdlTools tools, ProcessRunner run, Log log, strin
 
     public async Task ResetAsync(CancellationToken ct)
     {
-        if (DryRun) { log.Warn("DRY RUN: would reboot the phone"); return; }
+        // a reboot writes nothing, and skipping it in a dry run would leave the phone sitting in EDL
         await SendAsync("""<power DelayInSeconds="0" value="reset" />""", "reboot", ct);
     }
 
