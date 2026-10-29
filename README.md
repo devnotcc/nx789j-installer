@@ -39,6 +39,14 @@ an init_boot with a small boot helper and an **install agent**:
 Android's apps and data stay. While the Linux kernel is installed Android runs without
 KernelSU (root modules stop working); the Recovery tool puts the OS package's kernel back.
 
+Know what you trade while the Linux kernel is installed:
+
+- **Android runs with SELinux permissive** (Linux needs it), so apps are much less contained.
+- **Any PC you have authorized for adb can get root** on the next boot, by uploading its own
+  launchers to the install agent (it checks that an upload is complete and intact, not who made
+  it). Revoke adb authorizations you don't need.
+- **No Bluetooth** in Debian yet (needs a kernel module that isn't shipped).
+
 ## Toolbox
 
 - **Play Integrity** — check a keybox against Google's revocation list, install one (no reboot),
