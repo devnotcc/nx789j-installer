@@ -72,8 +72,8 @@
                 </StackPanel>
             </Border>
 
-            <!-- Options -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="20,6">
+            <!-- Options (not for Linux: it writes no partition, so there is nothing to back up) -->
+            <Border x:Name="OptionsCard" Style="{StaticResource Card}" Margin="0,0,0,12" Padding="20,6">
                 <StackPanel>
                     <Grid x:Name="TwrpRow" Padding="0,10">
                         <StackPanel Spacing="2" Margin="0,0,120,0">

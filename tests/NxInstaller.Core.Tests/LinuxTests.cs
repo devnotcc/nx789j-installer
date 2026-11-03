@@ -41,7 +41,8 @@ public class LinuxTests
     [Theory]
     [InlineData("evil.sh")]
     [InlineData("../rootfs.ext4")]
-    [InlineData("busybox-arm64")]
+    // the agent runs from the upload but never installs itself
+    [InlineData("nx-agent.sh")]
     public void ManifestRefusesNamesTheAgentRefuses(string name) =>
         Assert.Throws<ArgumentException>(() => LinuxAgent.Manifest([new(name, 1, new string('0', 64))]));
 

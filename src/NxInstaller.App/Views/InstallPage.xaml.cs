@@ -57,8 +57,8 @@ public sealed partial class InstallPage : Page, IWizardPage
             XamlRoot = XamlRoot,
             Title = $"Install {OsName} now?",
             Content = _app.IsLinux
-                ? "The Linux files are copied to the phone, then it restarts into EDL mode for the Linux kernel and restarts twice more on its own. "
-                  + "Android's apps and data stay, but while this kernel is installed Android runs without root (KernelSU), so root-based modules stop working."
+                ? "The Linux files are copied to the phone and installed with root (KernelSU), then it restarts into Linux. "
+                  + "Nothing is erased and no partition is written: Android's apps, data and root stay, and Android starts again whenever you switch back."
                 : erase
                 ? "The phone restarts into EDL mode and everything on it is erased. This can't be undone."
                 : "The phone restarts into EDL mode and the new system is written. Your apps and data stay.",
@@ -89,7 +89,7 @@ public sealed partial class InstallPage : Page, IWizardPage
         var serial = _app.Phone.Mode == PhoneMode.Android ? _app.Phone.Serial : null;
         var installer = new Installer(_app.Log, _app.Run, _app.Adb, _app.EdlTools);
         installer.Step += st => DispatcherQueue.TryEnqueue(() => SetStep(st.Title, st.Progress));
-        var linux = new LinuxInstaller(_app.Log, _app.Run, _app.Adb, _app.EdlTools);
+        var linux = new LinuxInstaller(_app.Log, _app.Adb);
         linux.Step += st => DispatcherQueue.TryEnqueue(() => SetStep(st.Title, st.Progress));
         var lo = _app.IsLinux ? new LinuxOptions
         {
@@ -98,7 +98,6 @@ public sealed partial class InstallPage : Page, IWizardPage
             ImageBytes = (long)_app.LinuxDiskGb << 30,
             ReplaceExisting = _app.ReplaceLinux,
             BootLinux = _app.BootLinux,
-            BackupFirst = _app.BackupFirst,
             DryRun = _app.DryRun,
         } : null;
         var family = _app.CurrentFamily;
@@ -163,13 +162,19 @@ public sealed partial class InstallPage : Page, IWizardPage
     {
         var dry = _app.DryRun;
         ProgressArea.Visibility = _phase == Phase.Running ? Visibility.Visible : Visibility.Collapsed;
+        // nothing is logged before the run starts, so an empty Details box would just look broken
+        LogExpander.Visibility = _phase == Phase.Ready ? Visibility.Collapsed : Visibility.Visible;
         if (_phase != Phase.Failed) Result.IsOpen = false;
         switch (_phase)
         {
             case Phase.Ready:
                 HeroGlyph.Glyph = "\uE896";
                 Heading.Text = dry ? $"Test run: {OsName}" : $"Install {OsName}";
-                Intro.Text = dry
+                Intro.Text = _app.IsLinux
+                    ? (dry
+                        ? "The files are prepared and the phone is checked (root for adb, a kernel that runs Linux, free space), but nothing is copied or written."
+                        : "The files are prepared and checked first, then copied to the phone and installed with root through KernelSU. No partition is written.")
+                    : dry
                     ? "The phone restarts into EDL mode, the lock state and partition tables are read, and every write is planned and logged, but nothing is written. Then it restarts normally."
                     : "The images are downloaded and checked first. Then the phone restarts into EDL mode, where the bootloader's lock state is checked again before anything is written.";
                 break;
@@ -186,18 +191,21 @@ public sealed partial class InstallPage : Page, IWizardPage
                     ? "Every check passed and nothing was written. Turn off Test run on the previous page to install for real."
                     : _app.IsLinux
                     ? (_app.BootLinux
-                        ? "The phone is starting Linux. The desktop comes up in about a minute; the first start also grows the Linux disk."
+                        ? "The phone is starting Linux. The first start takes about 3 minutes with a black screen (it grows the Linux disk and sets up the desktop); later starts take about a minute."
                         : "Linux is installed. Android keeps starting until Linux is chosen as the boot mode.")
                     : "The phone is restarting. The first start takes a few minutes; it may restart once on its own.";
                 Result.Severity = InfoBarSeverity.Success;
                 Result.Title = dry ? "Nothing was written" : "Done";
-                Result.Message = dry ? "The planned writes are in the details below." : "You can unplug the phone once it shows the setup screen.";
+                Result.Message = dry ? "The planned writes are in the details below."
+                    : _app.IsLinux ? "You can unplug the phone." : "You can unplug the phone once it shows the setup screen.";
                 Result.IsOpen = true;
                 break;
             case Phase.Failed:
                 HeroGlyph.Glyph = "\uE7BA";
                 Heading.Text = "Something went wrong";
-                Intro.Text = "The details below say what happened. If the phone doesn't start, put it in EDL mode and run the install again.";
+                Intro.Text = _app.IsLinux
+                    ? "The details below say what happened. Android and its data are unchanged; fix the cause and run the install again."
+                    : "The details below say what happened. If the phone doesn't start, put it in EDL mode and run the install again.";
                 break;
         }
         StateChanged?.Invoke(this, EventArgs.Empty);

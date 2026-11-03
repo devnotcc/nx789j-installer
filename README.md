@@ -14,7 +14,7 @@ keeps the phone's firmware and unlock untouched.
 | **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | packaged, draft release |
 | **TWRP** recovery on its own | packaged, draft release |
 | **LineageOS** 23.2, with or without Google apps | being built; shown as "Coming soon" |
-| **Debian 13 + KDE Plasma** (on top of an installed Evolution X / LineageOS) | packaged, draft release |
+| **Debian 13 + KDE Plasma** (on top of an installed Evolution X) | packaged, draft release |
 
 Draft releases are not visible to the app or the public until they're published.
 
@@ -22,29 +22,25 @@ Draft releases are not visible to the app or the public until they're published.
 
 Debian runs next to Android on the same kernel: Android's native side keeps loading the
 drivers, firmware and vendor services, and Debian (systemd in its own namespaces) takes the
-screen. The package carries a second kernel (no KernelSU, with the namespaces systemd needs) and
-an init_boot with a small boot helper and an **install agent**:
+screen. Evolution X's kernel already has what Linux needs (KernelSU, plus the namespaces and
+device filesystem systemd uses), so a Linux install writes **no partition at all**:
 
-1. The installer copies the Linux image and its launchers to `/data/local/tmp/nx-install` over
-   adb, plus `firstboot.conf` (your Linux password as a SHA-512 crypt hash, never the password),
-   then a manifest (name, size, SHA-256 of every file) and `READY`.
-2. It writes the kernel (boot + init_boot of the active slot) over EDL, like any other package.
-3. On the next boot the agent takes the upload out of the adb user's reach, checks every file
-   against the manifest, accepts only a fixed list of names, refuses symlinks and hard links,
-   never replaces an installed Linux unless asked, moves the files into `/data/nx-linux` as root,
-   grows the image to the chosen size, and writes `STATUS` (`ok` / `error <reason>`).
-4. The installer reads `STATUS`, sets the boot mode the same way, and restarts into Linux.
-   Debian sets the password, grows its filesystem and makes its SSH host keys on the first start.
+1. The installer copies the Linux image, its launchers and a small **install agent** to
+   `/data/local/tmp/nx-install` over adb, plus `firstboot.conf` (your Linux password as a
+   SHA-512 crypt hash, never the password) and a manifest (name, size, SHA-256 of every file).
+2. It runs the agent as root through KernelSU (so Shell needs superuser in the KernelSU app).
+   The agent takes the upload out of the adb user's reach, checks every file against the
+   manifest, accepts only a fixed list of names, refuses symlinks and hard links, never
+   replaces an installed Linux unless asked, moves the files into `/data/nx-linux`, grows the
+   image to the chosen size, and installs a KernelSU boot hook. It reports `ok` or the reason.
+3. The installer sets the boot mode and restarts into Linux. Debian sets the password, grows
+   its filesystem and makes its SSH host keys on the first start (about 3 minutes with a black
+   screen); later starts take about a minute.
 
-Android's apps and data stay. While the Linux kernel is installed Android runs without
-KernelSU (root modules stop working); the Recovery tool puts the OS package's kernel back.
+Android's apps, data, root and Play Integrity stay, and Android keeps SELinux enforcing.
+The screen rotates with the phone in Linux too, and the panels switch between a portrait and a
+landscape layout.
 
-Know what you trade while the Linux kernel is installed:
-
-- **Android runs with SELinux permissive** (Linux needs it), so apps are much less contained.
-- **Any PC you have authorized for adb can get root** on the next boot, by uploading its own
-  launchers to the install agent (it checks that an upload is complete and intact, not who made
-  it). Revoke adb authorizations you don't need.
 - **No Bluetooth** in Debian yet (needs a kernel module that isn't shipped).
 
 ## Toolbox

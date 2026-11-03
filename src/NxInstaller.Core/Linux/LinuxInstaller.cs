@@ -1,6 +1,5 @@
 using System.Text;
 using NxInstaller.Core.Device;
-using NxInstaller.Core.Edl;
 using NxInstaller.Core.Install;
 using NxInstaller.Core.Packages;
 
@@ -16,18 +15,18 @@ public sealed record LinuxOptions
     public bool ReplaceExisting { get; init; }
     /// <summary>Boot into Linux when done (bootmode linux); otherwise Android keeps starting.</summary>
     public bool BootLinux { get; init; } = true;
-    public bool BackupFirst { get; init; } = true;
     /// <summary>Plan and check everything, upload nothing and write nothing.</summary>
     public bool DryRun { get; init; }
 }
 
 /// <summary>
 /// Installs a Linux package on top of an installed Android: uploads the image and its launchers to
-/// the phone over adb, writes the package's kernel (boot + init_boot of the active slot) over EDL,
-/// and lets the install agent in that init_boot move the upload into place on the next boot.
-/// Then it sets the boot mode the same way and restarts into Linux. Android's data is kept.
+/// the phone over adb and runs the package's install agent as root through KernelSU, which moves
+/// the upload into /data/nx-linux and installs the boot hook. Then it restarts into Linux.
+/// Nothing is written to a partition: the OS's own kernel (KernelSU + the options Linux needs)
+/// runs both. Android's data is kept.
 /// </summary>
-public sealed class LinuxInstaller(Log log, ProcessRunner run, Adb adb, EdlTools tools)
+public sealed class LinuxInstaller(Log log, Adb adb)
 {
     /// <summary>Package ids a Linux package can name in "requires", and the OS family each one is.</summary>
     public static readonly IReadOnlyDictionary<string, string> AndroidBases = new Dictionary<string, string>
@@ -51,11 +50,24 @@ public sealed class LinuxInstaller(Log log, ProcessRunner run, Adb adb, EdlTools
             : $"{m.Name} is installed on top of Android ({string.Join(" or ", m.Requires)}). Install that first, start it once, then come back.";
     }
 
+    /// <summary>Why the running Android cannot install Linux (no root for adb, or a kernel without
+    /// what Linux needs), or null when it can.</summary>
+    public async Task<string?> CheckPhoneAsync(string serial, CancellationToken ct)
+    {
+        if (!await adb.HasRootAsync(serial, ct))
+            return "Root isn't available to adb. In the KernelSU app, grant superuser to Shell, then try again.";
+        var k = (await adb.SuAsync(serial, LinuxAgent.KernelCheck, ct))?.Trim();
+        return k == "ok" ? null
+            : $"The kernel on the phone can't run Linux ({k}). Install the current version of your Android first (it keeps your data), then try again.";
+    }
+
     public async Task InstallAsync(PackageEntry entry, LinuxOptions o, string serial, string? currentFamily, CancellationToken ct)
     {
         var m = entry.Manifest;
         if (!m.Enabled) throw new InvalidOperationException($"{m.Name} is not available yet: {m.DisabledReason}");
         if (CheckBase(m, currentFamily) is { } why) throw new InvalidOperationException(why);
+        if (!m.Files.Any(f => f.File == LinuxAgent.AgentScript) || !m.Files.Any(f => f.File == LinuxAgent.Busybox))
+            throw new InvalidDataException($"{m.Name}: the package has no install agent; it needs a newer package");
         var firstboot = LinuxAgent.FirstbootFor(o.PasswordHash);
 
         // 1. everything on the PC first
@@ -73,8 +85,9 @@ public sealed class LinuxInstaller(Log log, ProcessRunner run, Adb adb, EdlTools
         var grow = o.ImageBytes > image.File.Size ? o.ImageBytes / 4096 * 4096 : (long?)null;
 
         // 2. what is on the phone
-        Report("Checking the phone's storage", 0.21);
-        var existing = await adb.ShellAsync(serial, $"ls {LinuxAgent.InstallDir}/{LinuxAgent.Image} 2>&1", ct);
+        Report("Checking the phone", 0.21);
+        if (await CheckPhoneAsync(serial, ct) is { } notReady) throw new InvalidOperationException(notReady);
+        var existing = await adb.SuAsync(serial, $"ls {LinuxAgent.InstallDir}/{LinuxAgent.Image} 2>&1", ct) ?? "";
         if (existing.Trim() == $"{LinuxAgent.InstallDir}/{LinuxAgent.Image}" && !o.ReplaceExisting)
             throw new InvalidOperationException("Linux is already installed on this phone. Choose to replace it (its files are deleted) to install again.");
         var avail = LinuxAgent.ParseDfAvailable(await adb.ShellAsync(serial, "df -k /data", ct))
@@ -85,56 +98,55 @@ public sealed class LinuxInstaller(Log log, ProcessRunner run, Adb adb, EdlTools
         if (upload + growth + Headroom > avail)
             throw new InvalidOperationException($"Not enough free space on the phone: {(upload + growth + Headroom) >> 30} GiB needed, {avail >> 30} GiB free. Choose a smaller Linux disk or free up space.");
 
-        // 3. the upload (the agent installs it on the first boot of the new kernel)
+        // 3. the upload, then the agent installs it right away
         var files = new List<(string Name, string Path)>(local.Select(l => (l.File.File, l.Path)));
         var fbPath = Path.Combine(dir, LinuxAgent.FirstbootConf);
+        var bmPath = Path.Combine(dir, LinuxAgent.BootMode);
         await File.WriteAllTextAsync(fbPath, firstboot, new UTF8Encoding(false), ct);
         files.Add((LinuxAgent.FirstbootConf, fbPath));
+        if (o.BootLinux)
+        {
+            await File.WriteAllTextAsync(bmPath, "linux\n", new UTF8Encoding(false), ct);
+            files.Add((LinuxAgent.BootMode, bmPath));
+        }
+        if (o.DryRun)
+        {
+            log.Info($"dry run: would upload {string.Join(", ", files.Select(f => f.Name))} and run the install agent as root");
+            File.Delete(fbPath); File.Delete(bmPath);
+            Report("Dry run finished: nothing was uploaded or written", 1.0);
+            return;
+        }
         try
         {
-            if (o.DryRun) log.Info($"dry run: would upload {string.Join(", ", files.Select(f => f.Name))}");
-            else await UploadAsync(serial, files, grow, o.ReplaceExisting, 0.22, 0.4, ct);
+            await UploadAsync(serial, files, grow, o.ReplaceExisting, 0.22, 0.8, ct);
+            Report("Installing the Linux files on the phone", 0.81);
+            await adb.SuAsync(serial, LinuxAgent.RunCommand, ct);
         }
         catch
         {
-            // cancelled or failed half-way: nothing half-uploaded stays on the phone
+            // failed or cancelled before the agent took the upload: leave no 6 GB behind
             try { await adb.ShellAsync(serial, $"rm -rf {LinuxAgent.RemoteDir}", CancellationToken.None); } catch { }
             throw;
         }
-        finally { File.Delete(fbPath); }
-
-        // 4. the kernel with the install agent
-        var kernel = new Installer(log, run, adb, tools);
-        kernel.Step += st => Step?.Invoke(st with { Progress = 0.4 + st.Progress * 0.35 });
-        try
+        finally
         {
-            await kernel.InstallAsync(entry, new InstallOptions { BackupFirst = o.BackupFirst, DryRun = o.DryRun, Wipe = false }, serial, ct);
+            File.Delete(fbPath); File.Delete(bmPath);
         }
-        catch when (!o.DryRun)
+        var st = LinuxAgent.ParseStatus(await adb.ShellAsync(serial, $"cat {LinuxAgent.RemoteDir}/STATUS 2>/dev/null", ct));
+        if (st is not { Ok: true })
         {
-            // the phone may still be in Android (failure before EDL); leave nothing half-uploaded
-            try { await adb.ShellAsync(serial, $"rm -rf {LinuxAgent.RemoteDir}", CancellationToken.None); } catch { }
-            throw;
+            // the agent consumes the upload; whatever is left of a refused or broken one goes too
+            try { await adb.ShellAsync(serial, $"rm -f {LinuxAgent.RemoteDir}/{LinuxAgent.Image} {LinuxAgent.RemoteDir}/READY", CancellationToken.None); } catch { }
+            throw new InvalidOperationException(st is null ? "The install agent on the phone did not report back." : $"The phone refused the Linux files: {st.Reason}");
         }
-        if (o.DryRun) { Report("Dry run finished: nothing was uploaded or written", 1.0); return; }
+        foreach (var d in st.Details) log.Info($"phone: {d}");
 
-        // 5. first boot of the new kernel: the agent installs the upload
-        Report("Waiting for the phone to start (it installs Linux on the way)", 0.76);
-        var st1 = await WaitForStatusAsync(serial, TimeSpan.FromMinutes(20), ct);
-        if (!st1.Ok) throw new InvalidOperationException($"The phone refused the Linux files: {st1.Reason}");
-        foreach (var d in st1.Details) log.Info($"phone: {d}");
-
-        // 6. boot mode, then restart into Linux
+        // 4. restart into Linux
         if (o.BootLinux)
         {
-            Report("Switching the phone to start Linux", 0.9);
-            var bm = Path.Combine(dir, LinuxAgent.BootMode);
-            await File.WriteAllTextAsync(bm, "linux\n", new UTF8Encoding(false), ct);
-            try { await UploadAsync(serial, [(LinuxAgent.BootMode, bm)], null, false, 0.9, 0.92, ct); }
-            finally { File.Delete(bm); }
+            Report("Restarting the phone into Linux", 0.9);
             await adb.RunAsync(serial, ["reboot"], TimeSpan.FromSeconds(30), ct);
-            var st2 = await WaitForStatusAsync(serial, TimeSpan.FromMinutes(10), ct);
-            if (!st2.Ok) throw new InvalidOperationException($"The phone refused the boot mode: {st2.Reason}");
+            await WaitForAdbAsync(serial, TimeSpan.FromMinutes(5), ct);
         }
         Report(o.BootLinux ? $"{m.Name} is installed and starting" : $"{m.Name} is installed (Android still starts by default)", 1.0);
     }
@@ -152,7 +164,8 @@ public sealed class LinuxInstaller(Log log, ProcessRunner run, Adb adb, EdlTools
             await adb.PushAsync(serial, path, $"{r}/{name}", ct);
             var onPhone = (await adb.ShellAsync(serial, $"stat -c %s {r}/{name}", ct)).Trim();
             if (onPhone != size.ToString()) throw new IOException($"{name}: {onPhone} bytes on the phone, {size} expected");
-            uploads.Add(new LinuxAgent.Upload(name, size, await Download.Sha256FileAsync(path, ct)));
+            // the agent runs from the upload but is not one of the files it installs
+            if (name != LinuxAgent.AgentScript) uploads.Add(new LinuxAgent.Upload(name, size, await Download.Sha256FileAsync(path, ct)));
             done += size;
         }
         var man = Path.Combine(Path.GetDirectoryName(files[0].Path)!, "manifest");
@@ -163,25 +176,18 @@ public sealed class LinuxInstaller(Log log, ProcessRunner run, Adb adb, EdlTools
         await adb.ShellAsync(serial, $"touch {r}/READY && ls {r}/READY", ct);
     }
 
-    /// <summary>Waits until the phone is back on adb and the agent has written STATUS.</summary>
-    async Task<AgentStatus> WaitForStatusAsync(string serial, TimeSpan timeout, CancellationToken ct)
+    /// <summary>Waits until the restarting phone is back on adb (adb also runs on a Linux boot).</summary>
+    async Task WaitForAdbAsync(string serial, TimeSpan timeout, CancellationToken ct)
     {
         var end = DateTime.UtcNow + timeout;
-        var seen = false;
+        await Task.Delay(TimeSpan.FromSeconds(10), ct);
         while (DateTime.UtcNow < end)
         {
             ct.ThrowIfCancellationRequested();
             var d = (await adb.DevicesAsync(ct)).FirstOrDefault(x => x.Serial == serial);
-            if (d?.State == "device")
-            {
-                if (!seen) { log.Info("phone is back on adb"); seen = true; }
-                var text = await adb.ShellAsync(serial, $"cat {LinuxAgent.RemoteDir}/STATUS 2>/dev/null", ct);
-                if (LinuxAgent.ParseStatus(text) is { } s) return s;
-            }
+            if (d?.State == "device") { log.Info("phone is back on adb"); return; }
             await Task.Delay(TimeSpan.FromSeconds(3), ct);
         }
-        throw new TimeoutException(seen
-            ? "The phone started but did not report back from the install. Check /data/local/tmp/nx-install on it."
-            : "The phone did not come back on USB. If it shows Android or Linux, the install may still have worked; check it and run the install again.");
+        throw new TimeoutException("The phone did not come back on USB. If it shows Linux, the install worked.");
     }
 }

@@ -199,6 +199,8 @@ async Task<int> InstallLinux(string[] a, PackageEntry entry, Adb adb, PhoneSnaps
     var dry = a.Contains("--dry-run");
     string password;
     if (Opt(a, "--password-file") is { } pf) password = File.ReadAllText(pf).TrimEnd('\r', '\n');
+    // a dry run uploads nothing, so it needs no password (same as the app's test run)
+    else if (dry) password = Guid.NewGuid().ToString();
     else
     {
         password = ReadSecret("Password for the Linux account 'nx': ");
@@ -212,11 +214,10 @@ async Task<int> InstallLinux(string[] a, PackageEntry entry, Adb adb, PhoneSnaps
         ImageBytes = gb << 30,
         ReplaceExisting = a.Contains("--replace"),
         BootLinux = !a.Contains("--stay-android"),
-        BackupFirst = !a.Contains("--no-backup"),
         DryRun = dry,
     };
     Console.WriteLine($"install {entry.Manifest.Name} {entry.Manifest.Version} on top of {probe.Os}  (disk {gb} GiB, replace={o.ReplaceExisting}, dryrun={dry})");
-    var inst = new LinuxInstaller(log, run, adb, tools);
+    var inst = new LinuxInstaller(log, adb);
     inst.Step += st => Console.WriteLine($"  [{st.Progress,5:P0}] {st.Title}");
     await inst.InstallAsync(entry, o, probe.Serial, FamilyOf(probe.Os), ct);
     return 0;

@@ -6,10 +6,11 @@ namespace NxInstaller.Core.Linux;
 public sealed record AgentStatus(bool Ok, string Reason, IReadOnlyList<string> Details);
 
 /// <summary>
-/// The protocol of the install agent in the public kernel-2 init_boot (tools/linux/initboot/
-/// nx-agent.sh): the installer uploads files to <see cref="RemoteDir"/> with adb, then a manifest,
-/// then READY. On the next boot the agent checks every file (size, SHA-256, allowed name) and
-/// moves them into /data/nx-linux as root, and writes STATUS. Keep both sides in step.
+/// The protocol of the install agent (tools/linux/initboot/nx-agent.sh, shipped in the Linux
+/// package): the installer uploads files to <see cref="RemoteDir"/> with adb, then a manifest,
+/// then READY, and runs the agent as root through KernelSU. The agent checks every file (size,
+/// SHA-256, allowed name), moves them into /data/nx-linux, installs the boot hook and writes
+/// STATUS. Keep both sides in step.
 /// </summary>
 public static class LinuxAgent
 {
@@ -18,15 +19,33 @@ public static class LinuxAgent
     public const string Image = "rootfs.ext4";
     public const string FirstbootConf = "firstboot.conf";
     public const string BootMode = "bootmode";
+    /// <summary>The agent itself and the static busybox it runs with (both from the package).</summary>
+    public const string AgentScript = "nx-agent.sh";
+    public const string Busybox = "busybox-arm64";
 
     /// <summary>Files a package may carry.</summary>
     public static readonly IReadOnlySet<string> UploadNames = new HashSet<string>(StringComparer.Ordinal)
     {
-        Image, "nx-linux.sh", "nx-linux-boot.sh", "nx-systemd.sh", "backend_conf.xml",
+        Image, "nx-linux.sh", "nx-linux-boot.sh", "nx-systemd.sh", "backend_conf.xml", "nx-accel", Busybox, AgentScript,
     };
 
-    /// <summary>Everything the agent accepts: the package files plus the two the installer writes itself.</summary>
-    public static readonly IReadOnlySet<string> AgentNames = new HashSet<string>(UploadNames, StringComparer.Ordinal) { FirstbootConf, BootMode };
+    /// <summary>What the agent installs: the package files (not the agent itself) plus the two the
+    /// installer writes itself.</summary>
+    public static readonly IReadOnlySet<string> AgentNames =
+        new HashSet<string>(UploadNames.Where(n => n != AgentScript), StringComparer.Ordinal) { FirstbootConf, BootMode };
+
+    /// <summary>Runs the uploaded agent as root (through su).</summary>
+    // (adb push leaves the busybox without its execute bit; busybox's own shell, not Android's:
+    // mksh computes in 32 bits, and image sizes and free space do not fit)
+    public static string RunCommand =>
+        $"chmod 755 {RemoteDir}/{Busybox} && NX_BB={RemoteDir}/{Busybox} NX_ROOT= {RemoteDir}/{Busybox} sh {RemoteDir}/{AgentScript}";
+
+    /// <summary>
+    /// Shell test for a kernel that can run Linux: PID namespaces (systemd) and KernelSU (it runs
+    /// the boot hook). Prints "ok" or what is missing.
+    /// </summary>
+    public const string KernelCheck =
+        "[ -e /proc/self/ns/pid ] || { echo 'no PID namespaces'; exit 0; }; [ -x /data/adb/ksud ] || { echo 'no KernelSU'; exit 0; }; echo ok";
 
     /// <summary>Space the agent leaves free on /data when growing the image (it refuses beyond that).</summary>
     public const long AgentReserve = 2L << 30;

@@ -38,6 +38,7 @@ public sealed partial class OptionsPage : Page, IWizardPage
         WipeCard.Visibility = wipe ? Visibility.Visible : Visibility.Collapsed;
         KeepCard.Visibility = wipe || m?.Kind != PackageKind.Android ? Visibility.Collapsed : Visibility.Visible;
         LinuxCard.Visibility = _app.IsLinux ? Visibility.Visible : Visibility.Collapsed;
+        OptionsCard.Visibility = _app.IsLinux ? Visibility.Collapsed : Visibility.Visible;
         DiskGb.Value = _app.LinuxDiskGb;
         ReplaceLinux.IsOn = _app.ReplaceLinux;
         BootLinux.IsOn = _app.BootLinux;
