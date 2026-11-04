@@ -43,6 +43,15 @@ landscape layout.
 
 - **No Bluetooth** in Debian yet (needs a kernel module that isn't shipped).
 
+## Source code
+
+| Repository | What |
+|---|---|
+| [android_device_nubia_nx789j](https://github.com/devnotcc/android_device_nubia_nx789j) | device tree, plus every change to Evolution X source (`patches/evox`) and its pinned manifest |
+| [android_vendor_nubia_nx789j](https://github.com/devnotcc/android_vendor_nubia_nx789j) | proprietary blobs from RedMagicOS 11.0.4 |
+| [android_kernel_nubia_nx789j](https://github.com/devnotcc/android_kernel_nubia_nx789j) | the kernel in the Evolution X package (GKI 6.6.92 + KernelSU-Next + SUSFS) |
+| [nx789j-linux](https://github.com/devnotcc/nx789j-linux) | the Debian 13 + KDE Plasma image: build scripts, overlay, phone-side files |
+
 ## Toolbox
 
 - **Play Integrity** — check a keybox against Google's revocation list, install one (no reboot),
