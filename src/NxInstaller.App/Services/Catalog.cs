@@ -25,8 +25,8 @@ public static class Catalog
     public static List<CatalogItem> Create() =>
     [
         new("evox", "Evolution X", "Android 16 with Google apps, Pixel features and the RedMagic extras (fan, slider, performance modes).", "\uE8EA", null, false),
-        new("lineage-gapps", "LineageOS", "Clean, close-to-stock Android 16, with or without Google apps.", "\uE8EA", "With Google apps", true),
-        new("lineage-vanilla", "LineageOS", "Clean, close-to-stock Android 16, with or without Google apps.", "\uE8EA", "No Google apps", true),
+        new("lineage-gapps", "LineageOS", "Clean, close-to-stock Android 16, with or without Google apps.", "\uE8EA", "With Google apps", false),
+        new("lineage-vanilla", "LineageOS", "Clean, close-to-stock Android 16, with or without Google apps.", "\uE8EA", "No Google apps", false),
         new("debian-plasma", "Debian 13 with KDE Plasma", "A full Linux desktop on the phone's own hardware: GPU acceleration, Wi-Fi, sound, fan control.", "\uE7F8", null, false),
         new("twrp", "TWRP recovery only", "Replace the recovery with TWRP without changing the installed OS.", "\uE90F", null, false),
     ];

@@ -11,12 +11,15 @@ keeps the phone's firmware and unlock untouched.
 
 | Package | Status |
 |---|---|
-| **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | packaged, draft release |
-| **TWRP** recovery on its own | packaged, draft release |
-| **LineageOS** 23.2, with or without Google apps | being built; shown as "Coming soon" |
-| **Debian 13 + KDE Plasma** (on top of an installed Evolution X) | packaged, draft release |
+| **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | released |
+| **TWRP** recovery on its own | released |
+| **LineageOS** 23.2, with or without Google apps | released |
+| **Debian 13 + KDE Plasma** (on top of Evolution X or LineageOS) | released |
 
-Draft releases are not visible to the app or the public until they're published.
+After writing, the installer reads every partition back and compares checksums. Then it waits
+for the phone to start and checks what's running: the right OS and build, the slot and kernel
+it wrote, SELinux, that apps and data are still there, and that the phone stays up instead of
+restarting. After a Linux install it waits for systemd and the Plasma desktop.
 
 ### How the Linux install works
 
