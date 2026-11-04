@@ -11,10 +11,10 @@ keeps the phone's firmware and unlock untouched.
 
 | Package | Status |
 |---|---|
-| **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | released |
+| **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | final test install, release soon |
 | **TWRP** recovery on its own | released |
-| **LineageOS** 23.2, with or without Google apps | released |
-| **Debian 13 + KDE Plasma** (on top of Evolution X or LineageOS) | released |
+| **LineageOS** 23.2, with or without Google apps | released, not yet tested on a phone |
+| **Debian 13 + KDE Plasma** (on top of Evolution X or LineageOS) | release soon, together with Evolution X |
 
 After writing, the installer reads every partition back and compares checksums. Then it waits
 for the phone to start and checks what's running: the right OS and build, the slot and kernel
