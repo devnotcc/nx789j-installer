@@ -55,6 +55,16 @@ public class PostInstallCheckTests
     }
 
     [Fact]
+    public void Banner_id_ignores_the_build_number_and_date()
+    {
+        // as in boot_susfs7_linux.img (tail unfilled) vs /proc/version on the phone (2026-11-04)
+        const string image = "Linux version 6.6.92-4k-g7548e17901c5 (build@build) (Android (11368308, +pgo) clang version 18.0.0, LLD 18.0.0) # SMP PREEMPT";
+        const string running = "Linux version 6.6.92-4k-g7548e17901c5 (build@build) (Android (11368308, +pgo) clang version 18.0.0, LLD 18.0.0) #8 SMP PREEMPT Tue Nov  3 19:12:11 EET 2026";
+        Assert.Equal(PostInstallCheck.BannerId(image), PostInstallCheck.BannerId(running));
+        Assert.NotEqual(PostInstallCheck.BannerId(Banner), PostInstallCheck.BannerId(running));
+    }
+
+    [Fact]
     public void Families_match_the_package_families()
     {
         Assert.Equal("evolutionx", PostInstallCheck.FamilyOf(PhoneOs.EvolutionX));

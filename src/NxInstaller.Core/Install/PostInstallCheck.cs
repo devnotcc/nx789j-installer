@@ -103,7 +103,7 @@ public sealed class PostInstallCheck(Log log, Adb adb)
         if (r.KernelBanner is not null)
         {
             var running = (await adb.ShellAsync(serial, "cat /proc/version", ct)).Trim();
-            checks.Add(running.StartsWith(r.KernelBanner, StringComparison.Ordinal)
+            checks.Add(BannerId(running) == BannerId(r.KernelBanner)
                 ? new("Kernel", CheckState.Pass, KernelRelease(running))
                 // boot read back correctly, so a different answer is usually a root-hiding module
                 // reporting the stock kernel; only a warning
@@ -272,6 +272,17 @@ public sealed class PostInstallCheck(Log log, Adb adb)
     {
         var f = banner.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return f.Length >= 3 && f[0] == "Linux" && f[1] == "version" ? f[2] : banner;
+    }
+
+    /// <summary>
+    /// The part of a kernel banner that identifies the build: release, builder and compiler, up to
+    /// the "#N SMP ..." tail. The copy inside the image can carry that tail unfilled ("# SMP
+    /// PREEMPT" without the build number and date) while /proc/version has it filled in.
+    /// </summary>
+    internal static string BannerId(string banner)
+    {
+        var i = banner.IndexOf(" #", StringComparison.Ordinal);
+        return (i < 0 ? banner : banner[..i]).Trim();
     }
 
     /// <summary>
