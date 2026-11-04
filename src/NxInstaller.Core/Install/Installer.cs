@@ -60,7 +60,8 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
     };
 
     /// <param name="serial">adb serial of the phone if it is booted, or null if it is already in EDL.</param>
-    public async Task InstallAsync(PackageEntry entry, InstallOptions o, string? serial, CancellationToken ct)
+    /// <returns>What was written, for <see cref="PostInstallCheck"/>; null after a dry run.</returns>
+    public async Task<InstallResult?> InstallAsync(PackageEntry entry, InstallOptions o, string? serial, CancellationToken ct)
     {
         var m = entry.Manifest;
         if (!m.Enabled) throw new InvalidOperationException($"{m.Name} is not available yet: {m.DisabledReason}");
@@ -71,6 +72,9 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
         if (prepared.Count == 0) throw new InvalidOperationException($"{m.Name} has nothing to write with these options");
 
         var edl = new EdlSession(tools, run, log, Path.Combine(AppPaths.Work, "edl")) { DryRun = o.DryRun };
+        int? appsBefore = null;
+        if (serial is not null && !o.Wipe && !o.DryRun)
+            try { appsBefore = await new PostInstallCheck(log, adb).UserAppsAsync(serial, ct); } catch (Exception e) when (e is not OperationCanceledException) { }
         if (serial is not null)
         {
             Report("Restarting the phone into EDL mode", 0.42);
@@ -119,5 +123,20 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
         Report("Restarting the phone", 0.97);
         await edl.ResetAsync(ct);
         Report(o.DryRun ? "Dry run finished: nothing was written" : $"{m.Name} installed", 1.0);
+        if (o.DryRun) return null;
+
+        var boot = prepared.FirstOrDefault(p => p.Image.Partition == "boot");
+        string? banner = null;
+        if (boot is not null) try { banner = PostInstallCheck.KernelBannerOf(boot.LocalFile); } catch (IOException) { }
+        return new InstallResult
+        {
+            Serial = serial,
+            Slot = plan.Writes.Select(w => w.Partition.Label).Select(l => l.EndsWith("_a") ? "_a" : l.EndsWith("_b") ? "_b" : null).FirstOrDefault(x => x is not null),
+            KernelBanner = banner,
+            KernelOnly = o.OnlyPartitions is { } only && !only.Contains("super"),
+            Wiped = o.Wipe,
+            RecoveryWritten = prepared.Any(p => p.Image.Partition == "recovery"),
+            UserAppsBefore = appsBefore,
+        };
     }
 }

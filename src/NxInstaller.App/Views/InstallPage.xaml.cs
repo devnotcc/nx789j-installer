@@ -20,6 +20,8 @@ public sealed partial class InstallPage : Page, IWizardPage
     Phase _phase = Phase.Ready;
     CancellationTokenSource? _cts;
     double _progress;
+    bool _checking;
+    List<Check>? _checks;
 
     public InstallPage()
     {
@@ -101,15 +103,37 @@ public sealed partial class InstallPage : Page, IWizardPage
             DryRun = _app.DryRun,
         } : null;
         var family = _app.CurrentFamily;
+        var post = new PostInstallCheck(_app.Log, _app.Adb);
+        post.Status += s => DispatcherQueue.TryEnqueue(() => SetStep(s, 1.0));
+        _checks = null;
 
         try
         {
+            Func<Task<List<Check>>>? check = null;
             if (lo is not null)
             {
                 if (serial is null) throw new InvalidOperationException("Start the phone into Android first: the Linux files are copied over USB debugging.");
                 await Task.Run(() => linux.InstallAsync(entry, lo, serial, family, _cts.Token));
+                if (!lo.DryRun && lo.BootLinux) check = () => post.CheckLinuxAsync(serial, _cts.Token);
             }
-            else await Task.Run(() => installer.InstallAsync(entry, o, serial, _cts.Token));
+            else
+            {
+                var written = await Task.Run(() => installer.InstallAsync(entry, o, serial, _cts.Token));
+                if (written is not null) check = () => post.CheckAndroidAsync(entry.Manifest, written, _cts.Token);
+            }
+            if (check is not null)
+            {
+                // the install is done; from here a cancel only skips looking at the result
+                _checking = true;
+                DispatcherQueue.TryEnqueue(() => SetStep("Checking the install", 1.0));
+                try { _checks = await Task.Run(check); }
+                catch (OperationCanceledException) { _checks = [new("Check", CheckState.Warn, "Skipped. The install itself finished.")]; }
+                catch (Exception e)
+                {
+                    _app.Log.Error(e.ToString());
+                    _checks = [new("Check", CheckState.Warn, $"The phone couldn't be checked: {e.Message}")];
+                }
+            }
             _phase = Phase.Succeeded;
         }
         catch (OperationCanceledException)
@@ -130,6 +154,7 @@ public sealed partial class InstallPage : Page, IWizardPage
         }
         finally
         {
+            _checking = false;
             _app.Busy = false;
             _cts.Dispose();
             _cts = null;
@@ -144,7 +169,11 @@ public sealed partial class InstallPage : Page, IWizardPage
         Bar.Value = p;
         Percent.Text = $"{p:P0}";
         // Downloads can be cancelled; once the phone is in EDL the install must run to the end.
-        CancelButton.Visibility = p < 0.42 ? Visibility.Visible : Visibility.Collapsed;
+        CancelButton.Visibility = p < 0.42 || _checking ? Visibility.Visible : Visibility.Collapsed;
+        CancelButton.Content = _checking ? "Skip the check" : "Cancel";
+        KeepConnected.Text = _checking
+            ? "The phone is starting. Keep it connected; the installer looks at what's running once it's up."
+            : "Keep the phone connected and don't touch its buttons until this finishes.";
     }
 
     void Cancel_Click(object sender, RoutedEventArgs e) => _cts?.Cancel();
@@ -165,6 +194,8 @@ public sealed partial class InstallPage : Page, IWizardPage
         // nothing is logged before the run starts, so an empty Details box would just look broken
         LogExpander.Visibility = _phase == Phase.Ready ? Visibility.Collapsed : Visibility.Visible;
         if (_phase != Phase.Failed) Result.IsOpen = false;
+        ChecksArea.Visibility = _phase == Phase.Succeeded && _checks is { Count: > 0 } ? Visibility.Visible : Visibility.Collapsed;
+        if (_checks is { Count: > 0 }) CheckList.Render(CheckRows, _checks.Select(c => (c, (UIElement?)null)));
         switch (_phase)
         {
             case Phase.Ready:
@@ -198,6 +229,29 @@ public sealed partial class InstallPage : Page, IWizardPage
                 Result.Title = dry ? "Nothing was written" : "Done";
                 Result.Message = dry ? "The planned writes are in the details below."
                     : _app.IsLinux ? "You can unplug the phone." : "You can unplug the phone once it shows the setup screen.";
+                if (_checks is { Count: > 0 } c)
+                {
+                    if (c.Any(x => x.State == CheckState.Fail))
+                    {
+                        Heading.Text = $"{OsName} was written, but isn't running properly";
+                        Result.Severity = InfoBarSeverity.Error;
+                        Result.Title = "A check failed";
+                        Result.Message = "The red items below say what's wrong. The full log has the details.";
+                        LogExpander.IsExpanded = true;
+                    }
+                    else if (c.Any(x => x.State == CheckState.Warn))
+                    {
+                        Result.Severity = InfoBarSeverity.Warning;
+                        Result.Title = "Installed; not everything could be confirmed";
+                        Result.Message = "See the items below. You can unplug the phone.";
+                    }
+                    else
+                    {
+                        Intro.Text = _app.IsLinux ? "Linux started and the desktop is up." : $"The phone started and is running {OsName}.";
+                        Result.Title = "Installed and checked";
+                        Result.Message = "Every check passed. You can unplug the phone.";
+                    }
+                }
                 Result.IsOpen = true;
                 break;
             case Phase.Failed:

@@ -6,6 +6,7 @@ using NxInstaller.Core.Device;
 using NxInstaller.Core.Edl;
 using NxInstaller.Core.Install;
 using NxInstaller.Core.Packages;
+using NxInstaller.Core.Safety;
 
 namespace NxInstaller.App.Views;
 
@@ -89,8 +90,14 @@ public sealed partial class RecoveryPage : Page
             var inst = new Installer(_app.Log, _app.Run, adb, tools);
             inst.Step += s => Step(s.Title);
             if (serial is null) Step("Waiting for the phone in EDL mode (power off, hold both volume buttons, plug in)");
-            await inst.InstallAsync(entry, Installer.KernelOnly(dry), serial, ct);
-            return dry ? "Test run finished; nothing was written." : "The kernel is back. The phone is restarting.";
+            var written = await inst.InstallAsync(entry, Installer.KernelOnly(dry), serial, ct);
+            if (written is null) return "Test run finished; nothing was written.";
+            var post = new PostInstallCheck(_app.Log, adb);
+            post.Status += s => Step(s);
+            var checks = await post.CheckAndroidAsync(entry.Manifest, written, ct);
+            var bad = checks.Where(c => c.State != CheckState.Pass).Select(c => $"{c.Name}: {c.Detail}").ToList();
+            if (checks.Any(c => c.State == CheckState.Fail)) throw new InvalidOperationException("The kernel was written, but " + string.Join(" ", bad));
+            return bad.Count == 0 ? "The kernel is back and the phone started with it." : "The kernel is back. " + string.Join(" ", bad);
         });
     }
 

@@ -101,10 +101,10 @@ nxcli pif-status            show the Play Integrity stack on the phone
 nxcli pif-swap <file>       check then install a keybox (no reboot)
 nxcli edl-info              EDL lock state + partition count (read-only)
 nxcli backup [dir]          full partition backup over EDL (read-only)
-nxcli install <id> [--dry-run] [--twrp] [--wipe] [--source dir]
+nxcli install <id> [--dry-run] [--twrp] [--wipe] [--source dir] [--no-check]
             Linux: [--size GB] [--replace] [--stay-android] [--password-file f]
 nxcli repair-slot [--dry-run]   clear the "unbootable" mark on the active slot (phone in EDL)
-nxcli kernel <id> [--dry-run]   rewrite only boot + init_boot from a package
+nxcli kernel <id> [--dry-run] [--no-check]   rewrite only boot + init_boot from a package
 nxcli pack <spec.json> <dir>    build a package: zstd, split under 2 GiB, manifest.json
 ```
 

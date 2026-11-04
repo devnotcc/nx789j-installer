@@ -188,8 +188,23 @@ async Task<int> InstallPkg(string[] a)
 
     var inst = new Installer(log, run, adb, tools);
     inst.Step += st => Console.WriteLine($"  [{st.Progress,5:P0}] {st.Title}");
-    await inst.InstallAsync(entry, o, probe.Mode == PhoneMode.Android ? probe.Serial : null, ct);
-    return 0;
+    var written = await inst.InstallAsync(entry, o, probe.Mode == PhoneMode.Android ? probe.Serial : null, ct);
+    if (written is null || a.Contains("--no-check")) return 0;
+    return PrintChecks(await Checker().CheckAndroidAsync(entry.Manifest, written, ct));
+}
+
+PostInstallCheck Checker()
+{
+    var c = new PostInstallCheck(log, new Adb(PlatformTools.AdbExe, run));
+    c.Status += s => Console.WriteLine($"  [check] {s}");
+    return c;
+}
+
+static int PrintChecks(List<Check> checks)
+{
+    Console.WriteLine("after the install:");
+    foreach (var c in checks) Console.WriteLine($"  {c.State,-4}  {c.Name}: {c.Detail}");
+    return checks.Any(c => c.State == CheckState.Fail) ? 2 : 0;
 }
 
 async Task<int> InstallLinux(string[] a, PackageEntry entry, Adb adb, PhoneSnapshot probe, EdlTools tools)
@@ -220,7 +235,8 @@ async Task<int> InstallLinux(string[] a, PackageEntry entry, Adb adb, PhoneSnaps
     var inst = new LinuxInstaller(log, adb);
     inst.Step += st => Console.WriteLine($"  [{st.Progress,5:P0}] {st.Title}");
     await inst.InstallAsync(entry, o, probe.Serial, FamilyOf(probe.Os), ct);
-    return 0;
+    if (dry || !o.BootLinux || a.Contains("--no-check")) return 0;
+    return PrintChecks(await Checker().CheckLinuxAsync(probe.Serial, ct));
 }
 
 static string ReadSecret(string prompt)
@@ -263,8 +279,9 @@ async Task<int> Kernel(string[] a)
     var tools = EdlTools.FindDefault(null) ?? throw new InvalidOperationException("EDL tools not found (ZTE toolbox)");
     var inst = new Installer(log, run, adb, tools);
     inst.Step += st => Console.WriteLine($"  [{st.Progress,5:P0}] {st.Title}");
-    await inst.InstallAsync(entry, Installer.KernelOnly(a.Contains("--dry-run")), probe.Mode == PhoneMode.Android ? probe.Serial : null, ct);
-    return 0;
+    var written = await inst.InstallAsync(entry, Installer.KernelOnly(a.Contains("--dry-run")), probe.Mode == PhoneMode.Android ? probe.Serial : null, ct);
+    if (written is null || a.Contains("--no-check")) return 0;
+    return PrintChecks(await Checker().CheckAndroidAsync(entry.Manifest, written, ct));
 }
 
 async Task<int> Pack(string? spec, string? outDir)

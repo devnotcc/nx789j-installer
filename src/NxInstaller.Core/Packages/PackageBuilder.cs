@@ -30,6 +30,8 @@ public sealed record PackageSpec
     readonly List<string> _requires = [];
     public List<string> Notes { get => _notes; init => _notes = value ?? []; }
     readonly List<string> _notes = [];
+    public Dictionary<string, string> ExpectProps { get => _expect; init => _expect = value ?? []; }
+    readonly Dictionary<string, string> _expect = [];
     public required List<SpecImage> Images { get; init; }
     public List<SpecFile> Files { get => _files; init => _files = value ?? []; }
     readonly List<SpecFile> _files = []; // a spec without "files" must not come out null
@@ -89,6 +91,7 @@ public static class PackageBuilder
             Id = spec.Id, Name = spec.Name, Version = spec.Version, Kind = spec.Kind, Description = spec.Description,
             Enabled = spec.Enabled ?? true, DisabledReason = spec.DisabledReason, Variant = spec.Variant, Family = spec.Family,
             Compat = spec.Compat, Wipe = spec.Wipe, Images = images, Requires = spec.Requires, Notes = spec.Notes,
+            ExpectProps = spec.ExpectProps,
         };
         m.Validate();
         await File.WriteAllTextAsync(Path.Combine(outDir, "manifest.json"), m.ToJson(), ct);

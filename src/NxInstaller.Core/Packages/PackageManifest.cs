@@ -56,6 +56,10 @@ public sealed record PackageManifest
     readonly List<string> _requires = [];
     public List<string> Notes { get => _notes; init => _notes = value ?? []; }
     readonly List<string> _notes = [];
+    /// <summary>System properties the installed build reports (e.g. ro.build.date.utc), checked
+    /// after the install to confirm the phone runs exactly this build. Older installers ignore it.</summary>
+    public Dictionary<string, string> ExpectProps { get => _expect; init => _expect = value ?? []; }
+    readonly Dictionary<string, string> _expect = [];
 
     public static readonly JsonSerializerOptions Json = new()
     {
