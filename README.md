@@ -11,10 +11,15 @@ keeps the phone's firmware and unlock untouched.
 
 | Package | Status |
 |---|---|
-| **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | final test install, release soon |
+| **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | released, installed and in daily use on a phone |
 | **TWRP** recovery on its own | released |
 | **LineageOS** 23.2, with or without Google apps | released, not yet tested on a phone |
-| **Debian 13 + KDE Plasma** (on top of Evolution X or LineageOS) | release soon, together with Evolution X |
+| **Debian 13 + KDE Plasma** (on top of Evolution X or LineageOS) | released |
+
+Evolution X 16.0-20261106.2 brings DTS speaker tuning that switches itself off while Bluetooth
+audio is connected (the speaker tuning made earbuds thin), a louder media volume curve on the
+speaker, VoLTE and call audio. Debian 13-20261106 adds **mobile data** with a tray icon: signal,
+on/off, SIM 1 / SIM 2, and unlocking a PIN-locked SIM. Wi-Fi takes over when it's connected.
 
 After writing, the installer reads every partition back and compares checksums. Then it waits
 for the phone to start and checks what's running: the right OS and build, the slot and kernel
@@ -73,7 +78,12 @@ landscape layout.
 - **The unlock is verified from the bootloader itself** (the `devinfo` partition) in EDL before
   anything is written — not from Android, which custom ROMs spoof to "locked".
 - Installs **back up the partitions they replace** to the PC first, then **read them back and
-  compare checksums** after writing.
+  compare checksums** after writing (in 1 GiB pieces, so a USB hiccup costs one piece).
+- **Data is never erased by guesswork.** When the phone is already in EDL mode the installer can't
+  see which system it runs, so it asks: an update keeps your data, otherwise you confirm the erase.
+  On the command line, `--keep-data` or `--wipe` is required in that case.
+- If an install is interrupted and the phone stays stuck in EDL mode (black screen), unplug it and
+  hold **Power + Volume Up + Volume Down** for about 20 seconds.
 - Nothing is written below 30% battery, or with more than one phone connected.
 
 ## Layout
@@ -104,7 +114,7 @@ nxcli pif-status            show the Play Integrity stack on the phone
 nxcli pif-swap <file>       check then install a keybox (no reboot)
 nxcli edl-info              EDL lock state + partition count (read-only)
 nxcli backup [dir]          full partition backup over EDL (read-only)
-nxcli install <id> [--dry-run] [--twrp] [--wipe] [--source dir] [--no-check]
+nxcli install <id> [--dry-run] [--twrp] [--wipe | --keep-data] [--source dir] [--no-check]
             Linux: [--size GB] [--replace] [--stay-android] [--password-file f]
 nxcli repair-slot [--dry-run]   clear the "unbootable" mark on the active slot (phone in EDL)
 nxcli kernel <id> [--dry-run] [--no-check]   rewrite only boot + init_boot from a package
