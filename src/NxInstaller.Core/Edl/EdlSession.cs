@@ -68,6 +68,9 @@ public sealed class EdlSession(EdlTools tools, ProcessRunner run, Log log, strin
         throw new TimeoutException("No Qualcomm 9008 (EDL) device appeared. Check the cable and the Qualcomm driver.");
     }
 
+    internal static bool FirehoseAlreadyRunning(string saharaOutput) =>
+        saharaOutput.Contains("FIREHOSE MODE DETECTED", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Loads the firehose and reads the partition tables and the lock state. Writes nothing.</summary>
     public async Task ConnectAsync(string port, CancellationToken ct)
     {
@@ -75,7 +78,11 @@ public sealed class EdlSession(EdlTools tools, ProcessRunner run, Log log, strin
         Directory.CreateDirectory(workDir);
         log.Info($"EDL on COM{port}: loading the firehose");
         var r = await run.RunAsync(tools.Sahara, ["-p", $@"\\.\COM{port}", "-s", $"13:{tools.Firehose}"], TimeSpan.FromSeconds(60), ct: ct);
-        if (!r.Ok) throw new EdlException("Sahara (firehose upload) failed. Unplug, re-enter EDL and try again.", r);
+        // a firehose loaded by an earlier, interrupted session is still running (the phone stays in
+        // EDL until it is reset): Sahara refuses, but the port already speaks firehose
+        if (!r.Ok && FirehoseAlreadyRunning(r.Output))
+            log.Info("the firehose from an earlier session is still running; using it");
+        else if (!r.Ok) throw new EdlException("The phone did not accept the EDL loader. If it is already in EDL mode from an interrupted install, it is stuck there: unplug it, hold Power + Volume Up + Volume Down for about 20 seconds until it restarts, then try again.", r);
 
         var cfg = Path.Combine(workDir, "configure.xml");
         await File.WriteAllTextAsync(cfg, """<?xml version="1.0" encoding="UTF-8" ?><data><configure MemoryName="ufs" Verbose="0" AlwaysValidate="0" MaxDigestTableSizeInBytes="8192" MaxPayloadSizeToTargetInBytes="1048576" ZlpAwareHost="1" SkipStorageInit="0" Oem="ZTE"/></data>""", ct);

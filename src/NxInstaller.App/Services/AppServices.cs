@@ -33,6 +33,10 @@ public sealed partial class AppServices : ObservableObject
     [ObservableProperty] public partial bool WipeConfirmed { get; set; }
     [ObservableProperty] public partial bool BackupFirst { get; set; } = true;
     [ObservableProperty] public partial bool EraseAnyway { get; set; }
+    /// <summary>The user says the phone (in EDL or fastboot, where its system can't be seen) already runs the selected system.</summary>
+    [ObservableProperty] public partial bool AlreadyRunsIt { get; set; }
+    // a claim about one system never carries over to another
+    partial void OnSelectedChanged(CatalogItem? value) => AlreadyRunsIt = false;
     /// <summary>Go through every step, including EDL, but write nothing to the phone.</summary>
     [ObservableProperty] public partial bool DryRun { get; set; }
 
@@ -56,7 +60,15 @@ public sealed partial class AppServices : ObservableObject
 
     /// <summary>True when the selected package must format data (different OS or first install).</summary>
     public bool WipeRequired => Selected?.Package is { } p && p.Manifest.Kind == PackageKind.Android
-        && Core.Install.InstallPlanner.NeedsWipe(p.Manifest, CurrentFamily);
+        && Core.Install.InstallPlanner.NeedsWipe(p.Manifest,
+            CurrentFamily ?? (OsUnseen && AlreadyRunsIt ? p.Manifest.Wipe.UnlessFamily.FirstOrDefault() : null));
+
+    /// <summary>The phone is connected in a mode where its system can't be seen (EDL, fastboot).</summary>
+    public bool OsUnseen => Phone.Mode is PhoneMode.Edl or PhoneMode.Fastboot;
+
+    /// <summary>The user can tell the app the phone already runs the selected system (so data can be kept).</summary>
+    public bool CanClaimAlreadyRuns => OsUnseen && Selected?.Package is { } p && p.Manifest.Kind == PackageKind.Android
+        && !p.Manifest.Wipe.Always && p.Manifest.Wipe.UnlessFamily.Count > 0;
 
     public Adb? Adb { get; private set; }
     public Fastboot? Fastboot { get; private set; }
@@ -127,7 +139,7 @@ public sealed partial class AppServices : ObservableObject
             return $"Could not reach {Source.Name}.";
         }
         foreach (var c in Catalog)
-            c.Package = found.Where(p => p.Manifest.Id == c.Id).OrderByDescending(p => p.Manifest.Version, StringComparer.Ordinal).FirstOrDefault();
+            c.Package = found.Newest(c.Id);
         return null;
     }
 }

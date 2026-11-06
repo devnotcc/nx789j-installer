@@ -73,6 +73,7 @@ public sealed class LinuxInstaller(Log log, Adb adb)
         // 1. everything on the PC first
         Report("Preparing files", 0.0);
         var dir = Path.Combine(AppPaths.Work, m.Id, m.Version);
+        AppPaths.PruneOtherVersions(m.Id, m.Version, log);
         var local = new List<(PackageFile File, string Path)>();
         for (var i = 0; i < m.Files.Count; i++)
         {

@@ -28,6 +28,20 @@
                 </Grid>
             </Border>
 
+            <Border x:Name="UnseenCard" Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Is this an update?" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock x:Name="UnseenReason" TextWrapping="Wrap" Opacity="0.85" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="AlreadyRuns" Grid.Column="1" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center" Toggled="AlreadyRunsToggled" />
+                </Grid>
+            </Border>
+
             <Border x:Name="KeepCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                 <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>

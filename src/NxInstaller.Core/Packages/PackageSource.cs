@@ -180,3 +180,30 @@ sealed class ConcatStream(IReadOnlyList<string> files) : Stream
     public override void SetLength(long value) => throw new NotSupportedException();
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }
+
+public static class PackageVersions
+{
+    /// <summary>Compares package versions by their numbers ("16.0-20261106.2" is newer than "16.0-20261106",
+    /// "10" newer than "9"); text parts compare as text.</summary>
+    public static int Compare(string? a, string? b)
+    {
+        var x = Tokens(a ?? ""); var y = Tokens(b ?? "");
+        for (var i = 0; i < Math.Min(x.Count, y.Count); i++)
+        {
+            int c;
+            if (ulong.TryParse(x[i], out var nx) && ulong.TryParse(y[i], out var ny)) c = nx.CompareTo(ny);
+            else c = string.CompareOrdinal(x[i], y[i]);
+            if (c != 0) return Math.Sign(c);
+        }
+        return x.Count.CompareTo(y.Count);
+    }
+
+    static List<string> Tokens(string v) =>
+        System.Text.RegularExpressions.Regex.Matches(v, @"\d+|[^\d.\-_+]+").Select(m => m.Value).ToList();
+
+    public static readonly IComparer<string> Comparer = Comparer<string>.Create(Compare);
+
+    /// <summary>The newest version of a package in a listing, or null.</summary>
+    public static PackageEntry? Newest(this IEnumerable<PackageEntry> list, string id) =>
+        list.Where(e => e.Manifest.Id == id).OrderByDescending(e => e.Manifest.Version, Comparer).FirstOrDefault();
+}

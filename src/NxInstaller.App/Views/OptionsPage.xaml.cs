@@ -1,3 +1,4 @@
+using NxInstaller.Core.Device;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NxInstaller.App.Services;
@@ -35,6 +36,10 @@ public sealed partial class OptionsPage : Page, IWizardPage
         Title.Text = m is null ? "Ready to install" : $"Ready to install {m.Name}";
 
         var wipe = _app.WipeRequired;
+        UnseenCard.Visibility = _app.CanClaimAlreadyRuns ? Visibility.Visible : Visibility.Collapsed;
+        UnseenReason.Text = $"The phone is in {(_app.Phone.Mode == PhoneMode.Edl ? "EDL" : "fastboot")} mode, so this app can't see which system it runs. " +
+            $"Turn this on only if it already runs {m?.Name}: your apps and data then stay.";
+        AlreadyRuns.IsOn = _app.AlreadyRunsIt;
         WipeCard.Visibility = wipe ? Visibility.Visible : Visibility.Collapsed;
         KeepCard.Visibility = wipe || m?.Kind != PackageKind.Android ? Visibility.Collapsed : Visibility.Visible;
         LinuxCard.Visibility = _app.IsLinux ? Visibility.Visible : Visibility.Collapsed;
@@ -47,7 +52,9 @@ public sealed partial class OptionsPage : Page, IWizardPage
         LinuxPassword.Password = LinuxPassword2.Password = "";
         PasswordHint.Text = $"At least {MinPassword} characters.";
         var current = MainWindow.OsName(_app.Phone.Os);
-        WipeReason.Text = _app.CurrentFamily is null
+        WipeReason.Text = _app.OsUnseen
+            ? $"This app can't see what the phone runs, so the data partition is formatted for {m?.Name}."
+            : _app.CurrentFamily is null
             ? $"The phone runs {current}. {m?.Name} uses different encryption, so the data partition is formatted."
             : $"Moving from {current} to {m?.Name} needs a clean data partition.";
         KeepReason.Text = $"The phone already runs {current}, so this is an update. Turn this on to start fresh.";
@@ -62,6 +69,14 @@ public sealed partial class OptionsPage : Page, IWizardPage
         _loading = false;
         RenderWrites();
         StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    void AlreadyRunsToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _app.AlreadyRunsIt = AlreadyRuns.IsOn;
+        _app.WipeConfirmed = false; // the erase card comes and goes: never carry a tick over
+        Load();
     }
 
     void Changed(object sender, RoutedEventArgs e)

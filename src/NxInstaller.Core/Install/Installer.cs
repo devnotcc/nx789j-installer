@@ -37,6 +37,7 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
     public async Task<string> PrepareAsync(PackageEntry entry, InstallOptions o, CancellationToken ct, IProgress<double>? progress = null)
     {
         var dir = Path.Combine(AppPaths.Work, entry.Manifest.Id, entry.Manifest.Version);
+        AppPaths.PruneOtherVersions(entry.Manifest.Id, entry.Manifest.Version, log);
         var images = Selected(entry.Manifest, o).ToList();
         for (var i = 0; i < images.Count; i++)
         {
@@ -45,6 +46,56 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
                 new Progress<double>(f => progress?.Report((idx + f) / images.Count)), ct);
         }
         return dir;
+    }
+
+    /// <summary>Sectors read back per piece when checking a write (1 GiB).</summary>
+    public const ulong VerifyChunkSectors = (1UL << 30) / Gpt.SectorSize;
+
+    /// <summary>The pieces a read-back of <paramref name="sectors"/> sectors is split into: (offset, count).</summary>
+    public static IEnumerable<(ulong Offset, ulong Sectors)> VerifyChunks(ulong sectors, ulong chunk = VerifyChunkSectors)
+    {
+        for (ulong o = 0; o < sectors; o += chunk) yield return (o, Math.Min(chunk, sectors - o));
+    }
+
+    /// <summary>
+    /// Reads a written partition back piece by piece and returns the SHA-256 of all of it. Each piece is
+    /// tried twice: a USB stall on one piece (seen on the 16 GiB super) costs one piece, not the whole
+    /// check, and the PC never needs room for more than one piece. If a piece fails twice the firehose
+    /// is usually hung, which only a reset of the phone clears.
+    /// </summary>
+    async Task<string> ReadBackSha256Async(EdlSession edl, GptPartition part, ulong sectors, Action<double> progress, CancellationToken ct)
+    {
+        var edlDir = Path.Combine(AppPaths.Work, "edl");
+        var need = (long)Math.Min(sectors, VerifyChunkSectors) * Gpt.SectorSize + (512L << 20);
+        var free = AppPaths.FreeBytes(edlDir);
+        if (free < need)
+            throw new IOException($"Not enough free space to check {part.Label}: it needs {need >> 20} MB on " +
+                $"{Path.GetPathRoot(Path.GetFullPath(edlDir))}, {free >> 20} MB are free. Everything was written; " +
+                "free up space and run the install again. Do not restart the phone.");
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buf = new byte[1 << 20];
+        foreach (var (off, n) in VerifyChunks(sectors))
+        {
+            string back;
+            try { back = await edl.ReadAsync(new EdlRead(part, "verify.bin", n, off), ct); }
+            catch (EdlException first)
+            {
+                log.Warn($"reading {part.Label} back at sector {off} failed ({first.Message}); trying that piece again");
+                try { back = await edl.ReadAsync(new EdlRead(part, "verify.bin", n, off), ct); }
+                catch (EdlException e)
+                {
+                    throw new VerifyIncompleteException(part.Label, e);
+                }
+            }
+            await using (var f = File.OpenRead(back))
+            {
+                int r;
+                while ((r = await f.ReadAsync(buf, ct)) > 0) sha.AppendData(buf, 0, r);
+            }
+            File.Delete(back);
+            progress((double)(off + n) / sectors);
+        }
+        return Convert.ToHexStringLower(sha.GetHashAndReset());
     }
 
     public static IEnumerable<PackageImage> Selected(PackageManifest m, InstallOptions o) =>
@@ -111,11 +162,12 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
             var i = 0;
             foreach (var w in plan.Writes)
             {
-                Report($"Checking {w.Partition.Label}", 0.8 + 0.15 * i++ / plan.Writes.Count);
-                var back = await edl.ReadAsync(new EdlRead(w.Partition, "verify.bin", w.Sectors), ct);
+                var p0 = 0.8 + 0.15 * i / plan.Writes.Count;
+                var p1 = 0.8 + 0.15 * ++i / plan.Writes.Count;
+                Report($"Checking {w.Partition.Label}", p0);
                 var want = prepared.First(p => p.LocalFile == w.File).Image.Sha256;
-                var got = await Download.Sha256FileAsync(back, ct);
-                File.Delete(back);
+                var got = await ReadBackSha256Async(edl, w.Partition, w.Sectors,
+                    f => Step?.Invoke(new($"Checking {w.Partition.Label}", p0 + (p1 - p0) * f)), ct);
                 if (got != want) throw new InvalidDataException($"{w.Partition.Label} reads back different from what was written. Do not restart the phone; try the install again.");
             }
         }
@@ -139,4 +191,14 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
             UserAppsBefore = appsBefore,
         };
     }
+}
+
+/// <summary>Everything was written, but reading it back stopped (the phone's EDL connection hung).</summary>
+public sealed class VerifyIncompleteException(string partition, Exception inner) : IOException(
+    $"Everything was written, but checking {partition} could not finish: the phone stopped answering in EDL mode. " +
+    "Unplug the phone and hold Power + Volume Up + Volume Down for about 20 seconds until it restarts. " +
+    "It should start normally (Android checks the system itself as it starts). If it does not, put it back " +
+    "in EDL mode and run the install again: your data is kept.", inner)
+{
+    public string Partition { get; } = partition;
 }

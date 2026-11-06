@@ -51,4 +51,25 @@ public static class AppPaths
     public static string Downloads => Path.Combine(Root, "downloads");
     public static string Work => Path.Combine(Root, "work");
     public static string Settings => Path.Combine(Root, "settings.json");
+
+    /// <summary>
+    /// Unpacked images are big (super 16 GiB): keep only the version being installed in
+    /// work/&lt;id&gt;/ and delete the others (the packages themselves are not touched).
+    /// </summary>
+    public static void PruneOtherVersions(string id, string keepVersion, Log? log = null)
+    {
+        var dir = Path.Combine(Work, id);
+        if (!Directory.Exists(dir)) return;
+        foreach (var d in Directory.GetDirectories(dir))
+        {
+            if (string.Equals(Path.GetFileName(d), keepVersion, StringComparison.OrdinalIgnoreCase)) continue;
+            try { Directory.Delete(d, true); log?.Info($"removed old unpacked images {d}"); }
+            catch (IOException e) { log?.Warn($"could not remove {d}: {e.Message}"); }
+            catch (UnauthorizedAccessException e) { log?.Warn($"could not remove {d}: {e.Message}"); }
+        }
+    }
+
+    /// <summary>Free bytes on the drive holding <paramref name="path"/>.</summary>
+    public static long FreeBytes(string path) =>
+        new DriveInfo(Path.GetPathRoot(Path.GetFullPath(path))!).AvailableFreeSpace;
 }

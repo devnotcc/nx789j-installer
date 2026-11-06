@@ -167,9 +167,9 @@ async Task<int> BackupPartitions(string? dest, bool super, bool userdata)
 async Task<int> InstallPkg(string[] a)
 {
     var id = a.ElementAtOrDefault(1);
-    if (id is null) { log.Error("usage: nxcli install <package-id> [--source DIR] [--dry-run] [--twrp] [--no-backup]"); return 1; }
+    if (id is null) { log.Error("usage: nxcli install <package-id> [--source DIR] [--dry-run] [--twrp] [--no-backup] [--wipe | --keep-data]"); return 1; }
     var source = Opt(a, "--source");
-    var entry = (await LoadSource(source)).FirstOrDefault(e => e.Manifest.Id == id)
+    var entry = (await LoadSource(source)).Newest(id)
         ?? throw new InvalidOperationException($"package {id} not found");
 
     var adb = await AdbAsync();
@@ -177,12 +177,36 @@ async Task<int> InstallPkg(string[] a)
     var tools = EdlTools.FindDefault(null) ?? throw new InvalidOperationException("EDL tools (ZTE toolbox) not found; pass its folder in settings");
     if (entry.Manifest.Kind == PackageKind.Linux) return await InstallLinux(a, entry, adb, probe, tools);
 
+    // Wiping is decided from the OS that is on the phone now. When that can't be seen (phone in
+    // EDL or fastboot), the old rule "unknown = wipe" erased data that should have been kept, so
+    // the choice has to be made explicitly then.
+    var family = FamilyOf(probe.Os);
+    var keepData = a.Contains("--keep-data");
+    if (keepData && a.Contains("--wipe")) { log.Error("--wipe and --keep-data contradict each other"); return 1; }
+    bool wipe;
+    if (a.Contains("--wipe")) wipe = true;
+    else if (family is null && !entry.Manifest.Wipe.Always)
+    {
+        if (!keepData)
+        {
+            log.Error($"Can't tell which system is on the phone (it is in {probe.Mode} mode), so it is not known whether " +
+                $"{entry.Manifest.Name} must erase the data. Pass --keep-data if {string.Join("/", entry.Manifest.Wipe.UnlessFamily)} " +
+                "is installed now, or --wipe to erase it.");
+            return 1;
+        }
+        wipe = false;
+    }
+    else
+    {
+        wipe = InstallPlanner.NeedsWipe(entry.Manifest, family);
+        if (wipe && keepData) { log.Error($"{entry.Manifest.Name} has to erase the data when coming from {family ?? "this system"}; --keep-data is not possible"); return 1; }
+    }
     var o = new InstallOptions
     {
         DryRun = a.Contains("--dry-run"),
         BackupFirst = !a.Contains("--no-backup"),
         Options = a.Contains("--twrp") ? ["twrp"] : [],
-        Wipe = a.Contains("--wipe") || InstallPlanner.NeedsWipe(entry.Manifest, FamilyOf(probe.Os)),
+        Wipe = wipe,
     };
     Console.WriteLine($"install {entry.Manifest.Name} {entry.Manifest.Version}  (wipe={o.Wipe}, dryrun={o.DryRun})");
 
@@ -272,7 +296,7 @@ async Task<int> Kernel(string[] a)
 {
     var id = a.ElementAtOrDefault(1);
     if (id is null) { log.Error("usage: nxcli kernel <package-id> [--source DIR] [--dry-run]"); return 1; }
-    var entry = (await LoadSource(Opt(a, "--source"))).FirstOrDefault(e => e.Manifest.Id == id)
+    var entry = (await LoadSource(Opt(a, "--source"))).Newest(id)
         ?? throw new InvalidOperationException($"package {id} not found");
     var adb = await AdbAsync();
     var probe = await new DeviceProbe(adb, new Fastboot(PlatformTools.FastbootExe, run)).ProbeAsync(ct);
