@@ -11,9 +11,9 @@
                 <FontIcon Glyph="&#xE8EA;" FontSize="26" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
             </Border>
 
-            <TextBlock Style="{StaticResource PageTitle}" Text="A new OS for your REDMAGIC 10 Pro" />
+            <TextBlock Style="{StaticResource PageTitle}" Text="A new OS for your REDMAGIC 10 Pro or 10S Pro" />
             <TextBlock Style="{StaticResource PageIntro}"
-                       Text="This installer puts Evolution X, LineageOS or Debian Linux on an unlocked REDMAGIC 10 Pro (NX789J). It walks you through every step and checks each one before moving on. The phone's firmware and bootloader unlock are never touched." />
+                       Text="This installer puts Evolution X, LineageOS or Debian Linux on an unlocked REDMAGIC 10 Pro or 10S Pro (NX789J). It walks you through every step and checks each one before moving on. The phone's firmware and bootloader unlock are never touched." />
 
             <Grid ColumnSpacing="12" Margin="0,0,0,24">
                 <Grid.ColumnDefinitions>

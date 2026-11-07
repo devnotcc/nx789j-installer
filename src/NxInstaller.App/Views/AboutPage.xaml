@@ -10,11 +10,11 @@
             <Border Style="{StaticResource HeroIcon}">
                 <FontIcon Glyph="&#xE8EA;" FontSize="26" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
             </Border>
-            <TextBlock Style="{StaticResource PageTitle}" Text="REDMAGIC 10 Pro Installer" />
+            <TextBlock Style="{StaticResource PageTitle}" Text="REDMAGIC 10 Pro / 10S Pro Installer" />
             <TextBlock x:Name="Version" Opacity="0.75" Margin="0,0,0,24" />
 
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,12"
-                       Text="Community software for the nubia REDMAGIC 10 Pro (NX789J). Not made, endorsed or supported by nubia, ZTE, Google or Qualcomm." />
+                       Text="Community software for the nubia REDMAGIC 10 Pro and 10S Pro (NX789J). Not made, endorsed or supported by nubia, ZTE, Google or Qualcomm." />
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,24" Opacity="0.85"
                        Text="Not included and never redistributed: Qualcomm's EDL tools and the firehose loader (from your ZTE toolbox), Google's platform-tools (downloaded from Google), keyboxes (you provide your own), Windows (you provide the ISO)." />
 

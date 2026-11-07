@@ -140,7 +140,7 @@ public sealed partial class MainWindow : Window
                 PhoneMode.Fastboot => ("Phone in fastboot", s.Model ?? "Bootloader"),
                 PhoneMode.Recovery => ("Phone in recovery", s.Os == PhoneOs.Twrp ? $"TWRP {s.OsVersion}" : "Recovery"),
                 PhoneMode.Sideload => ("Phone in sideload", s.Serial ?? ""),
-                _ => (s.IsSupportedModel ? "REDMAGIC 10 Pro" : s.Model ?? "Unknown phone",
+                _ => (s.IsSupportedModel ? "REDMAGIC 10 Pro / 10S Pro" : s.Model ?? "Unknown phone",
                       $"{OsName(s.Os)}{(s.Battery is { } b ? $" · {b}%" : "")}"),
             };
         PhoneIcon.Glyph = s.Mode == PhoneMode.None ? "\uE8EA" : s.Mode == PhoneMode.Edl ? "\uE7F4" : "\uE8EA";

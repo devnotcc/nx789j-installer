@@ -42,7 +42,7 @@ public static class DeviceGate
 
         var models = m?.Compat.Models ?? ["NX789J"];
         list.Add(s.Model is { } model && models.Contains(model)
-            ? new("Model", CheckState.Pass, $"{model} (REDMAGIC 10 Pro)")
+            ? new("Model", CheckState.Pass, $"{model} (REDMAGIC 10 Pro / 10S Pro)")
             : new("Model", CheckState.Fail, $"This phone reports \"{s.Model ?? "unknown"}\". Only {string.Join(", ", models)} is supported; other models would be bricked."));
 
         if (s.Battery is { } b)

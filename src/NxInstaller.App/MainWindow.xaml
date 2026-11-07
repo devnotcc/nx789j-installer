@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:NxInstaller.App"
-    Title="REDMAGIC 10 Pro Installer">
+    Title="REDMAGIC 10 Pro / 10S Pro Installer">
 
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -23,7 +23,7 @@
         <!-- Title bar -->
         <StackPanel x:Name="TitleBar" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="12" Padding="14,0,0,0" VerticalAlignment="Center">
             <FontIcon Glyph="&#xE8EA;" FontSize="13" />
-            <TextBlock Text="REDMAGIC 10 Pro Installer" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+            <TextBlock Text="REDMAGIC 10 Pro / 10S Pro Installer" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
             <TextBlock Text="Preview" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.6" VerticalAlignment="Center" />
         </StackPanel>
 

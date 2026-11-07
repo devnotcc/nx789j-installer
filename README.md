@@ -1,6 +1,6 @@
 # NX789J Installer
 
-A Windows 11–style installer for the ZTE nubia RedMagic 10 Pro (**NX789J**). It replaces the
+A Windows 11–style installer for the ZTE nubia RedMagic 10 Pro and 10S Pro (both **NX789J**). It replaces the
 loose collection of shell scripts with one guided app that installs an OS, checks every step, and
 keeps the phone's firmware and unlock untouched.
 
