@@ -7,13 +7,85 @@ keeps the phone's firmware and unlock untouched.
 > **Experimental.** Flashing erases what's on the phone. The bootloader must already be unlocked.
 > Only the NX789J is supported; other models are refused.
 
+<p>
+  <img src="docs/screenshots/app-2-choose.png" width="49%" alt="Choose what to install">
+  <img src="docs/screenshots/app-5-options.png" width="49%" alt="Options before installing">
+</p>
+
+## Getting started
+
+### 1. Unlock the bootloader
+
+The installer only works on a phone whose bootloader is already unlocked. The free unlock for
+the 10 Pro / 10S Pro is the **ZTE Family Toolbox** (中兴家族工具箱) **1.2.8-beta4** by @SYXZ (某贼),
+linked in
+[this XDA thread](https://xdaforums.com/t/red-magic-11-pro-guide-bootloader-unlock-free-also-support-rm10-pad3pro-z70u-z80u-unlock-zte-family-toolbox.4780930/).
+Follow the thread to unlock. Don't update the stock firmware to 11.0.13 or later first: the
+thread reports that it blocks the unlock.
+
+Keep the toolbox: the installer uses its Qualcomm EDL tools, which it can't ship itself.
+
+### 2. Put the toolbox where the installer finds it
+
+Unpack the toolbox so that its `bin` folder is at **`C:\zte\bin`** (so `C:\zte\bin\tool\Win\fh_loader.exe`
+exists). The installer also looks in `C:\ztetoolbox\bin` and `C:\ZTEToolBox\bin`; anywhere else,
+point it there with **Browse…** on the **This PC** page. It uses only these files from it:
+
+| File | What it is |
+|---|---|
+| `bin\tool\Win\QSaharaServer.exe` | loads the EDL programmer onto the phone |
+| `bin\tool\Win\qcedlcmdhelper.exe` | configures the EDL connection |
+| `bin\tool\Win\fh_loader.exe` | reads and writes partitions |
+| `bin\res\NX789J\devprg` | the NX789J EDL programmer (firehose) |
+
+### 3. Install the Qualcomm 9008 driver
+
+The phone is written in EDL mode (Qualcomm 9008), which needs Qualcomm's USB driver. The toolbox's
+`刷机驱动和运行库.txt` ("flashing driver and runtime") links to it, plus the Visual C++ runtime if
+a tool complains about a missing DLL. With the driver installed, a phone in EDL shows up in Device
+Manager as **Qualcomm HS-USB QDLoader 9008 (COMn)**.
+
+### 4. Get the installer and run it
+
+Download `NxInstaller-<version>-win-x64.exe` from the
+[latest release](https://github.com/devnotcc/nx789j-installer/releases/latest). It's a single
+exe with nothing to install; Windows SmartScreen may warn because it isn't signed
+(**More info → Run anyway**). adb and fastboot are downloaded from Google by the app itself.
+
+On the phone, turn on **USB debugging** (Settings → System → Developer options) and allow this PC
+when asked. Then connect it **straight to the PC** (no hub) and follow the steps:
+
+| | |
+|---|---|
+| ![Welcome](docs/screenshots/app-1-welcome.png) | **Welcome**: what's needed. Tick the box once you've backed up the phone. |
+| ![Choose OS](docs/screenshots/app-2-choose.png) | **Choose OS**: Evolution X, LineageOS (with or without Google apps), Debian or TWRP. |
+| ![This PC](docs/screenshots/app-3-thispc.png) | **This PC**: disk space, adb, the 9008 driver and the EDL tools. Everything must be green. |
+| ![Your phone](docs/screenshots/app-4-phone.png) | **Your phone**: model, battery (30% or more), firmware and bootloader. |
+| ![Options](docs/screenshots/app-5-options.png) | **Options**: keep or erase data, TWRP, backup first, and a list of exactly what will be written. |
+
+Then **Install**: the app restarts the phone into EDL, checks the unlock again from the
+bootloader's own record, backs up the partitions it replaces to this PC, writes, reads everything
+back, restarts the phone and checks it once it's up. Don't unplug the phone until it says it's done.
+
+**Device tools** has a keybox checker and installer for Play Integrity, a full partition backup,
+and restart/repair tools:
+
+![Device tools](docs/screenshots/app-6-tools.png)
+
+### Without the app
+
+Each OS has a step-by-step manual install with the same EDL tools, in its own repo:
+[Evolution X](https://github.com/devnotcc/nx789j-evox) ·
+[LineageOS](https://github.com/devnotcc/nx789j-lineageos) ·
+[TWRP](https://github.com/devnotcc/nx789j-twrp). Each repo also lists what works and what doesn't.
+
 ## What it installs
 
 | Package | Status |
 |---|---|
-| **Evolution X** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | released, installed and in daily use on a phone |
-| **TWRP** recovery on its own | released |
-| **LineageOS** 23.2, with or without Google apps | released, not yet tested on a phone |
+| **[Evolution X](https://github.com/devnotcc/nx789j-evox)** 16 (KernelSU-Next + SUSFS kernel, optional TWRP) | released, installed and in daily use on a phone |
+| **[TWRP](https://github.com/devnotcc/nx789j-twrp)** recovery on its own | released |
+| **[LineageOS](https://github.com/devnotcc/nx789j-lineageos)** 23.2, with or without Google apps | released, not yet tested on a phone |
 | **Debian 13 + KDE Plasma** (on top of Evolution X or LineageOS) | released |
 
 Evolution X 16.0-20261106.2 brings DTS speaker tuning that switches itself off while Bluetooth
