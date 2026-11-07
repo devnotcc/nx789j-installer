@@ -98,6 +98,14 @@ for the phone to start and checks what's running: the right OS and build, the sl
 it wrote, SELinux, that apps and data are still there, and that the phone stays up instead of
 restarting. After a Linux install it waits for systemd and the Plasma desktop.
 
+<p>
+  <img src="docs/screenshots/debian-fastfetch.png" width="100%" alt="Debian 13 with KDE Plasma on the phone: fastfetch">
+</p>
+<p>
+  <img src="docs/screenshots/debian-menu.png" width="49%" alt="Debian: app menu">
+  <img src="docs/screenshots/debian-desktop.png" width="49%" alt="Debian: Plasma desktop in landscape">
+</p>
+
 ### How the Linux install works
 
 Debian runs next to Android on the same kernel: Android's native side keeps loading the
