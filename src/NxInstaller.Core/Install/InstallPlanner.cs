@@ -7,11 +7,20 @@ namespace NxInstaller.Core.Install;
 /// <summary>A prepared image (local raw file) for one manifest entry.</summary>
 public sealed record PreparedImage(PackageImage Image, string LocalFile);
 
-public sealed record InstallPlan(string ActiveSlot, IReadOnlyList<EdlWrite> Writes, IReadOnlyList<EdlWrite> Wipes)
+/// <summary>
+/// The start of super rewritten for the active slot (see <see cref="SuperMetadata"/>): written right
+/// after the super image, over its first MiB.
+/// </summary>
+public sealed record SuperHead(string File, byte[] Bytes, string FromSlot, string ToSlot);
+
+public sealed record InstallPlan(string ActiveSlot, IReadOnlyList<EdlWrite> Writes, IReadOnlyList<EdlWrite> Wipes, SuperHead? Head = null)
 {
     public IEnumerable<string> Describe()
     {
-        foreach (var w in Writes) yield return $"write {Path.GetFileName(w.File)} -> {w.Partition.Label} (LUN {w.Partition.Lun}, {w.Sectors * Gpt.SectorSize / (1 << 20)} MiB)";
+        foreach (var w in Writes)
+            yield return Head is not null && w.File == Head.File
+                ? $"write {Path.GetFileName(w.File)} -> {w.Partition.Label} (first {w.Sectors * Gpt.SectorSize / (1 << 20)} MiB: logical partitions moved from slot {Head.FromSlot} to {Head.ToSlot})"
+                : $"write {Path.GetFileName(w.File)} -> {w.Partition.Label} (LUN {w.Partition.Lun}, {w.Sectors * Gpt.SectorSize / (1 << 20)} MiB)";
         foreach (var w in Wipes) yield return $"wipe  {w.Partition.Label} (zero first {w.Sectors * Gpt.SectorSize / (1 << 20)} MiB)";
     }
 }
@@ -59,6 +68,26 @@ public static class InstallPlanner
             writes.Add(new EdlWrite(part, file, WriteKind.Image, sectors));
         }
 
+        // the super image holds data for the slot it was built for; on the other slot the new boot
+        // images would find empty logical partitions, so its metadata is moved to the active slot
+        SuperHead? head = null;
+        var super = writes.FirstOrDefault(w => PartitionPolicy.BaseName(w.Partition.Label) == "super");
+        if (super is not null)
+        {
+            var bytes = SuperMetadata.ReadHead(super.File);
+            var built = SuperMetadata.PopulatedSlot(bytes);
+            if (built is not null && built != slot)
+            {
+                if (bytes.Length != SuperMetadata.HeadBytes) throw new InvalidDataException("super image is shorter than its metadata area");
+                var swapped = SuperMetadata.SwapSlots(bytes);
+                if (SuperMetadata.PopulatedSlot(swapped) != slot) throw new InvalidDataException($"could not move the super metadata to slot {slot}");
+                var path = Path.Combine(Path.GetDirectoryName(super.File)!, $"super_head{slot}.img");
+                File.WriteAllBytes(path, swapped);
+                head = new SuperHead(path, swapped, built, slot);
+                writes.Insert(writes.IndexOf(super) + 1, new EdlWrite(super.Partition, path, WriteKind.Image, (ulong)swapped.Length / Gpt.SectorSize));
+            }
+        }
+
         var wipes = new List<EdlWrite>();
         if (wipe)
         {
@@ -70,7 +99,7 @@ public static class InstallPlanner
                 wipes.Add(new EdlWrite(part, zeroFile((long)sectors * Gpt.SectorSize), WriteKind.Wipe, sectors));
             }
         }
-        return new InstallPlan(slot, writes, wipes);
+        return new InstallPlan(slot, writes, wipes, head);
     }
 
     /// <summary>Whether this install formats data, from the manifest's rule and the OS the phone runs now.</summary>

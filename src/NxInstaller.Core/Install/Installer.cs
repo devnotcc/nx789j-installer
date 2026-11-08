@@ -160,12 +160,16 @@ public sealed class Installer(Log log, ProcessRunner run, Adb adb, EdlTools tool
         if (o.Verify && !o.DryRun)
         {
             var i = 0;
-            foreach (var w in plan.Writes)
+            // the rewritten start of super is checked as part of super
+            var checks = plan.Writes.Where(w => plan.Head is null || w.File != plan.Head.File).ToList();
+            foreach (var w in checks)
             {
-                var p0 = 0.8 + 0.15 * i / plan.Writes.Count;
-                var p1 = 0.8 + 0.15 * ++i / plan.Writes.Count;
+                var p0 = 0.8 + 0.15 * i / checks.Count;
+                var p1 = 0.8 + 0.15 * ++i / checks.Count;
                 Report($"Checking {w.Partition.Label}", p0);
-                var want = prepared.First(p => p.LocalFile == w.File).Image.Sha256;
+                var want = plan.Head is not null && w.Partition == plan.Writes.First(x => x.File == plan.Head.File).Partition
+                    ? await Task.Run(() => SuperMetadata.Sha256WithHead(w.File, plan.Head.Bytes, w.Sectors * Gpt.SectorSize), ct)
+                    : prepared.First(p => p.LocalFile == w.File).Image.Sha256;
                 var got = await ReadBackSha256Async(edl, w.Partition, w.Sectors,
                     f => Step?.Invoke(new($"Checking {w.Partition.Label}", p0 + (p1 - p0) * f)), ct);
                 if (got != want) throw new InvalidDataException($"{w.Partition.Label} reads back different from what was written. Do not restart the phone; try the install again.");

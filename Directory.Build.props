@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
     <!-- app/CLI version; the GitHub release is app-<Version> -->
-    <Version>0.1.3</Version>
+    <Version>0.1.4</Version>
   </PropertyGroup>
 </Project>

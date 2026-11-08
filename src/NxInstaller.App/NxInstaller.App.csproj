@@ -17,6 +17,11 @@
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- Unpackaged WinUI looks for resources.pri, then <exe name>.pri. Named after the project
+         (NxInstaller.pri), the XAML resources were lost as soon as the exe was renamed (the release
+         asset NxInstaller-x.y.z-win-x64.exe, or "NxInstaller (1).exe" from a browser) and the app
+         crashed at start in Microsoft.UI.Xaml.dll (0xc000027b). -->
+    <ProjectPriFileName>resources.pri</ProjectPriFileName>
   </PropertyGroup>
 
   <!-- Release download size: English resources only, framework libraries trimmed (partial mode
