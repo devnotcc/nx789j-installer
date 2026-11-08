@@ -22,6 +22,12 @@
 
             <StackPanel x:Name="Rows" Spacing="8" />
 
+            <CheckBox x:Name="SkipFirmware" Margin="0,12,0,0" Visibility="Collapsed"
+                      Checked="SkipFirmware_Changed" Unchecked="SkipFirmware_Changed">
+                <TextBlock TextWrapping="Wrap"
+                           Text="Skip the firmware check: I have backed up every partition and accept that the phone may not start." />
+            </CheckBox>
+
             <Grid x:Name="Details" Margin="0,20,0,0" ColumnSpacing="24" RowSpacing="6" Visibility="Collapsed">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

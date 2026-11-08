@@ -20,8 +20,12 @@ public sealed partial class PhonePage : Page, IWizardPage
     }
 
     public string PrimaryText => "Next";
-    public bool CanContinue => _checks.Count > 0 && !_checks.Blocks();
+    // untested firmware is a warning, but continuing needs the box ticked
+    public bool CanContinue => _checks.Count > 0 && !_checks.Blocks()
+                               && (!_checks.NeedsFirmwareSkip() || SkipFirmware.IsChecked == true);
     public event EventHandler? StateChanged;
+
+    void SkipFirmware_Changed(object sender, RoutedEventArgs e) => StateChanged?.Invoke(this, EventArgs.Empty);
 
     void App_Changed(object? s, PropertyChangedEventArgs e)
     {
@@ -33,6 +37,9 @@ public sealed partial class PhonePage : Page, IWizardPage
         var s = _app.Phone;
         _checks = DeviceGate.CheckPhone(s, _app.Selected?.Package?.Manifest);
         CheckList.Render(Rows, _checks.Select(c => (c, (UIElement?)null)));
+        var skip = _checks.NeedsFirmwareSkip();
+        SkipFirmware.Visibility = skip ? Visibility.Visible : Visibility.Collapsed;
+        if (!skip) SkipFirmware.IsChecked = false;   // a different phone or package asks again
         HowTo.Visibility = s.Mode is PhoneMode.None or PhoneMode.Unauthorized ? Visibility.Visible : Visibility.Collapsed;
 
         Details.Children.Clear();

@@ -59,8 +59,14 @@ public static class DeviceGate
             else if (m.Compat.Basebands.Contains(s.Baseband))
                 list.Add(new("Firmware", CheckState.Pass, s.Baseband));
             else
-                list.Add(new("Firmware", CheckState.Fail,
-                    $"Firmware {s.Baseband} is not one these images were tested on. Installing could leave the phone in a boot loop."));
+            {
+                // Not a hard stop: the page offers to skip it (see NeedsFirmwareSkip), after these two
+                list.Add(new("Firmware", CheckState.Warn,
+                    $"Firmware {s.Baseband} isn't one these images were tested on. Tested: {TestedFirmware(m.Compat.Basebands)}."));
+                list.Add(new(UntestedFirmware, CheckState.Warn,
+                    "On other firmware the phone may not start (boot loop), or calls, mobile data and the SIM may stop working. " +
+                    "Back up every partition first (Tools › Back up every partition) and only skip this check if you can restore the phone in EDL mode."));
+            }
         }
 
         // Stock Android tells the truth about the lock state; the real check is in EDL anyway.
@@ -100,4 +106,32 @@ public static class DeviceGate
     };
 
     public static bool Blocks(this IEnumerable<Check> checks) => checks.Any(c => c.State == CheckState.Fail);
+
+    /// <summary>Name of the warning that has to be confirmed before installing on untested firmware.</summary>
+    public const string UntestedFirmware = "Untested firmware";
+
+    /// <summary>Whether the user must confirm skipping the firmware check before continuing.</summary>
+    public static bool NeedsFirmwareSkip(this IEnumerable<Check> checks) => checks.Any(c => c.Name == UntestedFirmware);
+
+    /// <summary>RedMagicOS releases by the modem build their firmware reports (the part after "GEN_PACK-").</summary>
+    static readonly Dictionary<string, string> RedMagicOs = new()
+    {
+        ["1.82720.133"] = "11.0.4",
+        ["1.82720.138"] = "11.0.5",
+    };
+
+    /// <summary>"RedMagicOS 11.0.4 (…1.82720.133) and 11.0.5 (…1.82720.138)" for a package's firmware list.</summary>
+    public static string TestedFirmware(IEnumerable<string> basebands)
+    {
+        var builds = basebands.Select(b => b[(b.LastIndexOf("GEN_PACK-", StringComparison.Ordinal) is var i and >= 0 ? i + 9 : 0)..])
+            .Distinct().ToList();
+        var named = builds.Select(b => RedMagicOs.TryGetValue(b, out var v) ? $"{v} (…{b})" : b).ToList();
+        var text = named.Count switch
+        {
+            0 => "none listed",
+            1 => named[0],
+            _ => string.Join(", ", named.Take(named.Count - 1)) + " and " + named[^1],
+        };
+        return builds.Any(RedMagicOs.ContainsKey) ? "RedMagicOS " + text : text;
+    }
 }
