@@ -133,6 +133,10 @@ landscape layout.
   Android connect in Debian without pairing again and keep working in Android. Pair new devices
   in Android: a device paired in Debian works only in Debian until it's paired again in Android
   (both systems use the same Bluetooth address).
+- **USB audio** (DACs, USB-C headsets) works in Debian since 13-20261110, also when plugged in
+  after it started. While Debian runs, Qualcomm's USB audio offload is switched off; it's back
+  after a restart into Android. The phone's own 3.5 mm jack doesn't work in Debian yet: sound
+  always goes to the speaker.
 
 ## Source code
 
