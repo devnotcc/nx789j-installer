@@ -129,7 +129,9 @@ Android's apps, data, root and Play Integrity stay, and Android keeps SELinux en
 The screen rotates with the phone in Linux too, and the panels switch between a portrait and a
 landscape layout.
 
-- **No Bluetooth** in Debian yet (needs a kernel module that isn't shipped).
+- **Bluetooth** works in Debian since 13-20261108, including headphones. Devices paired in
+  Android can't be reused yet: pair them again in Debian. The phone uses the same Bluetooth
+  address in both systems, so the device then has to be paired again when you go back to Android.
 
 ## Source code
 
