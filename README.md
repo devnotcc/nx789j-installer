@@ -135,8 +135,10 @@ landscape layout.
   (both systems use the same Bluetooth address).
 - **USB audio** (DACs, USB-C headsets) works in Debian since 13-20261110, also when plugged in
   after it started. While Debian runs, Qualcomm's USB audio offload is switched off; it's back
-  after a restart into Android. The phone's own 3.5 mm jack doesn't work in Debian yet: sound
-  always goes to the speaker.
+  after a restart into Android.
+- **3.5 mm jack and microphones** since 13-20261111: headphones take over from the speaker when
+  plugged in (separate volumes), and "Phone microphone" records from the headset mic while a
+  headset is in, otherwise from the built-in mic. The mic is only on while something records.
 
 ## Source code
 
