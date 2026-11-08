@@ -7,7 +7,7 @@
   "description": "Evolution X 16 for the NX789J, with KernelSU-Next + SUSFS in the kernel. Full install: system, kernel, boot images and (optionally) TWRP.",
   "compat": {
     "models": ["NX789J"],
-    "basebands": ["SS.DE.7.0-02024.3-PAKALA_GEN_PACK-1.82720.133"]
+    "basebands": ["MPSS.DE.7.0-02024.3-PAKALA_GEN_PACK-1.82720.133"]
   },
   "wipe": { "unlessFamily": ["evolutionx"] },
   "notes": [
