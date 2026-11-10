@@ -167,9 +167,15 @@ public sealed class PostInstallCheck(Log log, Adb adb)
         }
 
         var mode = (await adb.SuAsync(s, $"cat {LinuxAgent.InstallDir}/bootmode", ct))?.Trim();
-        checks.Add(mode is "linux" or "linux-once"
-            ? new("Boot mode", CheckState.Pass, $"Starts {mode}.")
-            : new("Boot mode", CheckState.Fail, $"The boot mode is \"{mode}\", so Linux wasn't started."));
+        // the boot hook resets linux-once to android before it starts Linux, so still reading
+        // linux-once means the hook never ran this boot
+        checks.Add(mode switch
+        {
+            "linux" => new("Boot mode", CheckState.Pass, "Linux starts on every boot (Restart into Android in Debian's app menu starts Android once)."),
+            "android" => new("Boot mode", CheckState.Pass, "Linux was started once; Android stays the default system."),
+            "linux-once" => new("Boot mode", CheckState.Fail, "The boot hook didn't run, so Linux wasn't started (KernelSU runs it: check that KernelSU works)."),
+            _ => new("Boot mode", CheckState.Fail, $"The boot mode is \"{mode}\", so Linux wasn't started."),
+        });
 
         // systemd first, then the desktop; the first start grows the disk and takes ~3 minutes
         string? state = null; bool desktop = false;

@@ -13,8 +13,13 @@ public sealed record LinuxOptions
     public long ImageBytes { get; init; }
     /// <summary>Replace an installed Linux image (its files are lost).</summary>
     public bool ReplaceExisting { get; init; }
-    /// <summary>Boot into Linux when done (bootmode linux); otherwise Android keeps starting.</summary>
+    /// <summary>Start Linux once when done (bootmode linux-once): Android stays the default, so a
+    /// restart from Android, a crash or a forced restart comes back to Android. Restarting from
+    /// Linux stays in Linux.</summary>
     public bool BootLinux { get; init; } = true;
+    /// <summary>Make Linux the default instead (bootmode linux): every boot starts Linux until
+    /// "Restart into Android" (one boot) or the boot hook's fallback after failed boots.</summary>
+    public bool LinuxDefault { get; init; }
     /// <summary>Plan and check everything, upload nothing and write nothing.</summary>
     public bool DryRun { get; init; }
 }
@@ -105,9 +110,9 @@ public sealed class LinuxInstaller(Log log, Adb adb)
         var bmPath = Path.Combine(dir, LinuxAgent.BootMode);
         await File.WriteAllTextAsync(fbPath, firstboot, new UTF8Encoding(false), ct);
         files.Add((LinuxAgent.FirstbootConf, fbPath));
-        if (o.BootLinux)
+        if (o.BootLinux || o.LinuxDefault)
         {
-            await File.WriteAllTextAsync(bmPath, "linux\n", new UTF8Encoding(false), ct);
+            await File.WriteAllTextAsync(bmPath, o.LinuxDefault ? "linux\n" : "linux-once\n", new UTF8Encoding(false), ct);
             files.Add((LinuxAgent.BootMode, bmPath));
         }
         if (o.DryRun)
@@ -143,13 +148,13 @@ public sealed class LinuxInstaller(Log log, Adb adb)
         foreach (var d in st.Details) log.Info($"phone: {d}");
 
         // 4. restart into Linux
-        if (o.BootLinux)
+        if (o.BootLinux || o.LinuxDefault)
         {
             Report("Restarting the phone into Linux", 0.9);
             await adb.RunAsync(serial, ["reboot"], TimeSpan.FromSeconds(30), ct);
             await WaitForAdbAsync(serial, TimeSpan.FromMinutes(5), ct);
         }
-        Report(o.BootLinux ? $"{m.Name} is installed and starting" : $"{m.Name} is installed (Android still starts by default)", 1.0);
+        Report(o.BootLinux || o.LinuxDefault ? $"{m.Name} is installed and starting" : $"{m.Name} is installed (Android still starts by default)", 1.0);
     }
 
     async Task UploadAsync(string serial, IReadOnlyList<(string Name, string Path)> files, long? grow, bool replace, double p0, double p1, CancellationToken ct)

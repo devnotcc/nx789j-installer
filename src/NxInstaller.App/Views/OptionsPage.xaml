@@ -79,7 +79,7 @@
                     <Grid>
                         <StackPanel Spacing="2" Margin="0,0,120,0">
                             <TextBlock Text="Start Linux when done" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="Off: Android keeps starting, and Linux is ready to switch to later." TextWrapping="Wrap" Opacity="0.8" />
+                            <TextBlock Text="Starts Linux once; Android stays the default. Restarting from Linux stays in Linux; a restart from Android, a crash or a forced restart starts Android, and RedMagic Tools &gt; Debian in Android's settings restarts into Linux. Off: Android keeps starting." TextWrapping="Wrap" Opacity="0.8" />
                         </StackPanel>
                         <ToggleSwitch x:Name="BootLinux" HorizontalAlignment="Right" OnContent="" OffContent="" MinWidth="0" Toggled="Changed" />
                     </Grid>

@@ -247,19 +247,21 @@ async Task<int> InstallLinux(string[] a, PackageEntry entry, Adb adb, PhoneSnaps
     }
     if (password.Length < 4) { log.Error("use a password of at least 4 characters"); return 1; }
     var gb = Opt(a, "--size") is { } sz ? long.Parse(sz) : 32;
+    if (a.Contains("--linux-default") && a.Contains("--stay-android")) { log.Error("--linux-default and --stay-android contradict each other"); return 1; }
     var o = new LinuxOptions
     {
         PasswordHash = Sha512Crypt.Hash(password),
         ImageBytes = gb << 30,
         ReplaceExisting = a.Contains("--replace"),
         BootLinux = !a.Contains("--stay-android"),
+        LinuxDefault = a.Contains("--linux-default"),
         DryRun = dry,
     };
     Console.WriteLine($"install {entry.Manifest.Name} {entry.Manifest.Version} on top of {probe.Os}  (disk {gb} GiB, replace={o.ReplaceExisting}, dryrun={dry})");
     var inst = new LinuxInstaller(log, adb);
     inst.Step += st => Console.WriteLine($"  [{st.Progress,5:P0}] {st.Title}");
     await inst.InstallAsync(entry, o, probe.Serial, FamilyOf(probe.Os), ct);
-    if (dry || !o.BootLinux || a.Contains("--no-check")) return 0;
+    if (dry || !(o.BootLinux || o.LinuxDefault) || a.Contains("--no-check")) return 0;
     return PrintChecks(await Checker().CheckLinuxAsync(probe.Serial, ct));
 }
 
@@ -376,7 +378,8 @@ static void Usage() => Console.WriteLine("""
       edl-info                   reboot to EDL and show lock state + partitions (read only)
       backup [DIR] [--super] [--userdata]   full partition backup over EDL (read only)
       install <id> [--source DIR] [--dry-run] [--twrp] [--wipe] [--no-backup]
-                 Linux packages: [--size GB] [--replace] [--stay-android] [--password-file FILE]
+                 Linux packages: [--size GB] [--replace] [--stay-android | --linux-default] [--password-file FILE]
+                   (Linux starts once, Android stays the default; --linux-default: Linux on every boot)
       repair-slot [--dry-run]    clear the 'unbootable' mark on the active slot (phone in EDL)
       kernel <id> [--dry-run]    rewrite only boot + init_boot from a package (keeps data)
       pack <spec.json> <out-dir>   build a package (zstd, split parts, manifest.json)

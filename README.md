@@ -121,11 +121,19 @@ device filesystem systemd uses), so a Linux install writes **no partition at all
    manifest, accepts only a fixed list of names, refuses symlinks and hard links, never
    replaces an installed Linux unless asked, moves the files into `/data/nx-linux`, grows the
    image to the chosen size, and installs a KernelSU boot hook. It reports `ok` or the reason.
-3. The installer sets the boot mode and restarts into Linux. Debian sets the password, grows
+3. The installer restarts into Linux once. Debian sets the password, grows
    its filesystem and makes its SSH host keys on the first start (about 3 minutes with a black
    screen); later starts take about a minute.
 
 Android's apps, data, root and Play Integrity stay, and Android keeps SELinux enforcing.
+
+**Which system starts:** Android stays the default (since installer 0.1.6). Restarting from
+Debian stays in Debian. **Restart into Android** in Debian's app menu, a restart from Android, a
+crash or a forced restart starts Android, and **RedMagic Tools > Debian** in Android's settings
+restarts into Debian. To make Debian start on every boot, install with
+`nxcli install debian-plasma --linux-default`. Then Restart into Android starts Android for one
+boot, and from Debian 13-20261113 on, after three Debian starts in a row that didn't stay up
+(a crash or a forced restart within 3 minutes) the phone switches back to Android as the default.
 The screen rotates with the phone in Linux too, and the panels switch between a portrait and a
 landscape layout.
 
@@ -204,7 +212,7 @@ nxcli pif-swap <file>       check then install a keybox (no reboot)
 nxcli edl-info              EDL lock state + partition count (read-only)
 nxcli backup [dir]          full partition backup over EDL (read-only)
 nxcli install <id> [--dry-run] [--twrp] [--wipe | --keep-data] [--source dir] [--no-check]
-            Linux: [--size GB] [--replace] [--stay-android] [--password-file f]
+            Linux: [--size GB] [--replace] [--stay-android | --linux-default] [--password-file f]
 nxcli repair-slot [--dry-run]   clear the "unbootable" mark on the active slot (phone in EDL)
 nxcli kernel <id> [--dry-run] [--no-check]   rewrite only boot + init_boot from a package
 nxcli pack <spec.json> <dir>    build a package: zstd, split under 2 GiB, manifest.json
